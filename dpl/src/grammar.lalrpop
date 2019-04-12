@@ -1,0 +1,66 @@
+use crate::concrete::ConcreteTerm as Term;
+
+grammar;
+
+pub Term: Term = {
+    "(" <l:Term> ")" ":" <r:Term> => Term::Annot(l.into(), r.into()),
+    "\\" <v:Var> "." <t:Term> => Term::Lam(v, t.into()),
+    App => <>,
+    <l:App> "->" <r:Term> => Term::UnnamedPi(l.into(), r.into()),
+    "(" <v:Var> ":" <l:Term> ")" "->" <r:Term> => Term::Pi(v, l.into(), r.into()),
+    "let" <v:Var> "=" <l:Term> "in" <r:Term> => Term::Let(v, l.into(), r.into()),
+    "let" <v:Var> ":" <l:Term> "in" <r:Term> => Term::Decl(v, l.into(), r.into()),
+    <l:Atom> "," <r:Term> => Term::Pair(l.into(), r.into()),
+    <Atom> ".1" => Term::First(<>.into()),
+    <Atom> ".2" => Term::Second(<>.into()),
+    <l:App> "*" <r:Term> => Term::UnnamedSigma(l.into(), r.into()),
+    "(" <v:Var> ":" <l:Term> ")" "*" <r:Term> => Term::Sigma(v, l.into(), r.into()),
+    "case" <s:Term> "of" <cs:Mid<Case>> => Term::Case(s.into(), cs),
+    "case" "[" <c:Term> "]" <p:Term> "of" "refl" "(" <v:Var> ")" "->" <t:Term> => Term::EqElim(c.into(), p.into(), v, t.into()),
+    <x:App> "=" <y:App> => Term::EqTy(x.into(), y.into()),
+    "~" <a:Var> "." "\\" <x:Var> "." <tm:Term> => Term::Rec(a, x, tm.into()),
+};
+
+Plus<T>: Vec<T> = {
+    <v:(<T> "+")*> <e:T> => {
+        let mut v = v;
+        v.push(e);
+        v
+    }
+};
+
+Mid<T>: Vec<T> = {
+    <v:(<T> "|")*> <e:T> => {
+        let mut v = v;
+        v.push(e);
+        v
+    }
+}
+
+Case: (String, Term) = {
+    <Var> "->" <App> => (<>),
+};
+
+App: Term = {
+    <l:App> <r:Atom> => Term::App(l.into(), r.into()),
+    Atom => <>,
+};
+
+Atom: Term = {
+    "(" <Term> ")" => <>,
+    "'" <Var> => Term::Variant(<>),
+    "{" <Mid<Var>> "}" => Term::Enum(<>),
+    "fold" <Atom> => Term::Fold(<>.into()),
+    "unfold" <Atom> => Term::Unfold(<>.into()),
+    "fix" <Atom> => Term::Fix(<>.into()),
+    "Type" => Term::Type,
+    "unit" => Term::Unit,
+    "Unit" => Term::UnitTy,
+    "refl" => Term::Refl,
+    Var => Term::Var(<>),
+    "_" => Term::UnnamedVar,
+};
+
+Var: String = {
+    r"[a-zA-Z0-9'_]+" => <>.to_string(),
+};

@@ -1,0 +1,29 @@
+let Bool = <true : Unit + false : Unit> in
+let true = (<true = unit>) : Bool in
+let false = (<false = unit>) : Bool in
+
+let Foo = (\b. case b of <true = u> -> Bool | <false = u> -> Unit) : Bool -> Type in
+let bar = (\b. case b of <true = u> -> false | <false = u> -> unit) : (b : Bool) -> Foo b in
+
+bar
+
+
+
+
+
+let Bool = (l : <true + false>) * (case l of true -> Unit | false -> Unit) in
+let true = (<true>, unit) in
+let false = (<false>, unit) in
+
+let Nat = (l : <zero + succ>) * ~n.(case l of zero -> Unit | succ -> n) in
+let zero = (<zero>, fold unit) : Nat in
+let succ = \n. (<succ>, fold n) : Nat -> Nat in
+let plus = \m. \n. letp (l, r) = m in case l of zero -> n | succ -> succ (plus unfold(r) n) : Nat -> Nat -> Nat in
+
+
+b : <true : Unit + false : Unit> |- b => <true : Unit + false : Unit>    ... |- false <= Foo b    ... |- unit <= Foo b
+---------------------------------------------------------------------------------------------------------
+b : Bool |- case b of <true = _> -> false | <false = _> -> unit <= Foo b
+
+
+I might try writing yesterday's email again, since it was quite muddled when I wrote it last night and might not be understandable.
