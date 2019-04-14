@@ -1,0 +1,8 @@
+let Bool = {true | false} in
+let true = ('true) : Bool in
+let false = ('false) : Bool in
+
+let Foo = (\b. case b of true -> Bool | false -> Unit) : Bool -> Type in
+let bar = (\b. case b of true -> false | false -> unit) : (b : Bool) -> Foo b in
+
+bar true

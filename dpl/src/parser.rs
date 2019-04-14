@@ -34,10 +34,9 @@ pub fn parse_term(term: &str) -> Result<Term, ParseError<Location, grammar::Toke
 
 /// Converts a byte offset in a string, to a Location
 fn char_to_linechar(offset: usize, s: &str) -> Location {
-    let mut cur_line = 0;
     let mut cur_offset = 0;
 
-    for line in s.lines() {
+    for (cur_line, line) in s.lines().enumerate() {
         if cur_offset + line.len() >= offset {
             return Location {
                 line: cur_line + 1,
@@ -46,7 +45,6 @@ fn char_to_linechar(offset: usize, s: &str) -> Location {
         }
 
         cur_offset += line.len() + 1;
-        cur_line += 1;
     }
     unreachable!()
 }

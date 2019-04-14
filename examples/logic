@@ -1,0 +1,42 @@
+let And = (\A.\B.(A * B)) : (A : Type) -> (B : Type) -> Type in
+let and_intro = (\A.\B.\a.\b.(a, b)) : (A : Type) -> (B : Type) -> A -> B -> And A B in
+let proj1 = (\A.\B.\p.let (a, b) = p in a) : (A : Type) -> (B : Type) -> And A B -> A in
+let proj2 = (\A.\B.\p.let (a, b) = p in b) : (A : Type) -> (B : Type) -> And A B -> B in
+let and_commut = (\A.\B.\p.let (a, b) = p in (b, a)) : (A : Type) -> (B : Type) -> And A B -> And B A in
+let and_assoc = (\A.\B.\C.\p.let (a, bc) = p in let (b, c) = bc in ((a, b), c)) : (A : Type) -> (B : Type) -> (C : Type) -> And A (And B C) -> And (And A B) C in
+
+let Or = (\A.\B.((l : {left | right}) * (case l of left -> A | right -> B))) : (A : Type) -> (B : Type) -> Type in
+let or_intro_left = (\A.\B.\a.('left, a)) : (A : Type) -> (B : Type) -> A -> Or A B in
+let or_intro_right = (\A.\B.\b.('right, b)) : (A : Type) -> (B : Type) -> B -> Or A B in
+let or_commut = (\A.\B.\o.let (l, r) = o in case l of left -> ('right, r) | right -> ('left, r)) : (A : Type) -> (B : Type) -> Or A B -> Or B A in
+let or_assoc = (\A.\B.\C.\o.let (l1, r1) = o in case l1 of left -> ('left, ('left, r1))
+                                                         | right -> (let (l2, r2) = r1 in 
+                                                            case l2 of left -> ('left, ('right, r2))
+                                                                     | right -> ('right, r2)))
+             : (A : Type) -> (B : Type) -> (C : Type) -> Or A (Or B C) -> Or (Or A B) C in
+
+let Void = {} in
+let not = (\P.(P -> Void)) : Type -> Type in
+let not_false = (\x.x) : not Void in
+let double_neg = (\P.\p.\np.np p) : (P : Type) -> P -> not (not P) in
+let contrapositive = (\P.\Q.\pq.\qv.\p.qv (pq p)) : (P : Type) -> (Q : Type) -> (P -> Q) -> (not Q -> not P) in
+let not_both_true_and_false = (\P.\a.let (p, pv) = a in pv p) : (P : Type) -> not (And P (not P)) in
+
+let True = Unit in
+let true = (unit) : True in
+
+let iff = (\P.\Q.And (P -> Q) (Q -> P)) : (P : Type) -> (Q : Type) -> Type in
+let iff_sym = (\P.\Q.\a.let (x, y) = a in (y, x)) : (P : Type) -> (Q : Type) -> iff P Q -> iff Q P in
+let or_distributes_over_and = (\P.\Q.\R.let forw = (\o.let (l, r1) = o in case l of left -> (('left, r1), ('left, r1))
+                                                                                 | right -> (let (q, r) = r1 in (('right, q), ('right, r))))
+                                                 : (Or P (And Q R)) -> (And (Or P Q) (Or P R)) in
+                                        let back = (\a.let (pq, pr) = a in let (l1, r1) = pq in case l1 of left -> ('left, r1)
+                                                        | right -> (let (l2, r2) = pr in case l2 of left -> ('left, r2)
+                                                                                                  | right -> ('right, (r1, r2))))
+                                                 : (And (Or P Q) (Or P R)) -> (Or P (And Q R)) in
+                                        (forw, back) : iff (Or P (And Q R)) (And (Or P Q) (Or P R)))
+                            : (P : Type) -> (Q : Type) -> (R : Type) -> iff (Or P (And Q R)) (And (Or P Q) (Or P R)) in
+
+let excluded_middle_irrefutable = (\P.\ov.ov ('right, \x.ov ('left, x))) : (P : Type) -> not (not (Or P (not P))) in
+
+unit

@@ -17,8 +17,7 @@ pub enum ConcreteTerm {
     Let(String, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Decl(String, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Pair(Box<ConcreteTerm>, Box<ConcreteTerm>),
-    First(Box<ConcreteTerm>),
-    Second(Box<ConcreteTerm>),
+    LetPair(String, String, Box<ConcreteTerm>, Box<ConcreteTerm>),
     UnnamedSigma(Box<ConcreteTerm>, Box<ConcreteTerm>),
     Sigma(String, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Variant(String),
@@ -124,8 +123,17 @@ impl ConcreteTerm {
                 l._to_raw(vars.clone()).into(),
                 r._to_raw(vars.clone()).into(),
             ),
-            ConcreteTerm::First(p) => Term::First(p._to_raw(vars).into()),
-            ConcreteTerm::Second(p) => Term::Second(p._to_raw(vars).into()),
+            ConcreteTerm::LetPair(x, y, p, r) => {
+                let (x_var, new_vars) = vars.add_var(x);
+                let (y_var, new_vars) = new_vars.add_var(y);
+                Term::LetPair(Scope::new(
+                    (
+                        (Binder(x_var), Binder(y_var)),
+                        Embed(p._to_raw(vars.clone()).into()),
+                    ),
+                    r._to_raw(new_vars).into(),
+                ))
+            }
             ConcreteTerm::UnnamedSigma(l, r) => Term::Sigma(Scope::new(
                 (
                     Binder(FreeVar::fresh_unnamed()),
@@ -145,7 +153,7 @@ impl ConcreteTerm {
                 s._to_raw(vars.clone()).into(),
                 cases
                     .iter()
-                    .map(|(l, tm)| (l.to_string(), tm._to_raw(vars)))
+                    .map(|(l, tm)| (l.to_string(), tm._to_raw(vars.clone())))
                     .collect(),
             ),
             ConcreteTerm::Enum(ls) => Term::Enum(ls.to_vec()),

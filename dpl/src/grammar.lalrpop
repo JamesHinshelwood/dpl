@@ -11,8 +11,7 @@ pub Term: Term = {
     "let" <v:Var> "=" <l:Term> "in" <r:Term> => Term::Let(v, l.into(), r.into()),
     "let" <v:Var> ":" <l:Term> "in" <r:Term> => Term::Decl(v, l.into(), r.into()),
     <l:Atom> "," <r:Term> => Term::Pair(l.into(), r.into()),
-    <Atom> ".1" => Term::First(<>.into()),
-    <Atom> ".2" => Term::Second(<>.into()),
+    "let" "(" <x:Var> "," <y:Var> ")" "=" <p:Term> "in" <r:Term> => Term::LetPair(x, y, p.into(), r.into()),
     <l:App> "*" <r:Term> => Term::UnnamedSigma(l.into(), r.into()),
     "(" <v:Var> ":" <l:Term> ")" "*" <r:Term> => Term::Sigma(v, l.into(), r.into()),
     "case" <s:Term> "of" <cs:Mid<Case>> => Term::Case(s.into(), cs),
@@ -21,21 +20,16 @@ pub Term: Term = {
     "~" <a:Var> "." "\\" <x:Var> "." <tm:Term> => Term::Rec(a, x, tm.into()),
 };
 
-Plus<T>: Vec<T> = {
-    <v:(<T> "+")*> <e:T> => {
-        let mut v = v;
-        v.push(e);
-        v
+Mid<T>: Vec<T> = {
+    <v:(<T> "|")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
     }
 };
-
-Mid<T>: Vec<T> = {
-    <v:(<T> "|")*> <e:T> => {
-        let mut v = v;
-        v.push(e);
-        v
-    }
-}
 
 Case: (String, Term) = {
     <Var> "->" <App> => (<>),
@@ -62,5 +56,5 @@ Atom: Term = {
 };
 
 Var: String = {
-    r"[a-zA-Z0-9'_]+" => <>.to_string(),
+    r"[a-zA-Z0-9_]+" => <>.to_string(),
 };

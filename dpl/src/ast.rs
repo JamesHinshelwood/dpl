@@ -16,8 +16,7 @@ pub enum Term {
     Let(Scope<(Binder<NameRepr>, Embed<Box<Term>>), Box<Term>>),
     Decl(Scope<(Binder<NameRepr>, Embed<Box<Term>>), Box<Term>>),
     Pair(Box<Term>, Box<Term>),
-    First(Box<Term>),
-    Second(Box<Term>),
+    LetPair(Scope<((Binder<NameRepr>, Binder<NameRepr>), Embed<Box<Term>>), Box<Term>>),
     Sigma(Scope<(Binder<NameRepr>, Embed<Box<Term>>), Box<Term>>),
     Variant(String),
     Case(Box<Term>, Vec<(String, Term)>),
@@ -80,8 +79,16 @@ impl Term {
                 lhs.subst(name, replacement).into(),
                 rhs.subst(name, replacement).into(),
             ),
-            Term::First(tm) => Term::First(tm.subst(name, replacement).into()),
-            Term::Second(tm) => Term::Second(tm.subst(name, replacement).into()),
+            Term::LetPair(scope) => {
+                let ((x, y), Embed(p)) = &scope.unsafe_pattern;
+                Term::LetPair(Scope {
+                    unsafe_pattern: (
+                        (x.clone(), y.clone()),
+                        Embed(p.subst(name, replacement).into()),
+                    ),
+                    unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
+                })
+            }
             Term::Sigma(scope) => {
                 let (var, Embed(l)) = &scope.unsafe_pattern;
                 Term::Sigma(Scope {

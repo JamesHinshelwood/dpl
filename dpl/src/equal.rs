@@ -29,7 +29,7 @@ impl Term {
                 let rhs = rhs.nf(ctx);
                 if let Term::Lam(scope) = lhs {
                     let (Binder(var), body) = scope.unbind();
-                    body.subst(&var, &rhs).nf(ctx) // TODO: Consider using ctx instead
+                    body.subst(&var, &rhs).nf(ctx) // TODO: Consider using ctx.with_term instead
                 } else {
                     Term::App(lhs.into(), rhs.into())
                 }
@@ -49,7 +49,7 @@ impl Term {
             }
             Term::Let(scope) => {
                 let ((var, Embed(l)), r) = scope.clone().unbind();
-                //r.subst(&var, &l)
+                //r.subst(&var, &l) // TODO: Explicit subst
                 Term::Let(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
             }
             Term::Decl(scope) => {
@@ -57,33 +57,25 @@ impl Term {
                 Term::Decl(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
             }
             Term::Pair(l, r) => Term::Pair(l.nf(ctx).into(), r.nf(ctx).into()),
-            Term::First(p) => {
+            Term::LetPair(scope) => {
+                let (((Binder(x), Binder(y)), Embed(p)), rest) = scope.clone().unbind();
                 let p = p.nf(ctx);
-                if let Term::Pair(l, _) = p {
-                    l.nf(ctx)
+                if let Term::Pair(l, r) = p {
+                    rest.nf(&ctx.with_term(&x, &l).with_term(&y, &r))
                 } else {
-                    Term::First(p.into())
-                }
-            }
-            Term::Second(p) => {
-                let p = p.nf(ctx);
-                if let Term::Pair(_, r) = p {
-                    r.nf(ctx)
-                } else {
-                    Term::Second(p.into())
+                    Term::LetPair(scope.clone())
                 }
             }
             Term::Sigma(scope) => {
                 let ((var, Embed(l)), r) = scope.clone().unbind();
                 Term::Sigma(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
             }
-            Term::Variant(label, tm) => Term::Variant(label.to_string(), tm.nf(ctx).into()),
+            Term::Variant(l) => Term::Variant(l.to_string()),
             Term::Case(s, cases) => {
                 let s = s.nf(ctx);
-                if let Term::Variant(label, tm) = s.clone() {
-                    if let Some(scope) = lookup(&label, &cases) {
-                        let (Binder(var), body) = scope.unbind();
-                        body.subst(&var, &tm).nf(ctx)
+                if let Term::Variant(l) = s.clone() {
+                    if let Some(body) = lookup(&l, &cases) {
+                        body.nf(ctx)
                     } else {
                         Term::Case(s.into(), cases.to_vec())
                     }
@@ -91,11 +83,7 @@ impl Term {
                     Term::Case(s.into(), cases.to_vec())
                 }
             }
-            Term::Sum(tys) => Term::Sum(
-                tys.iter()
-                    .map(|(label, ty)| (label.to_string(), ty.nf(ctx)))
-                    .collect(),
-            ),
+            Term::Enum(ls) => Term::Enum(ls.to_vec()),
             Term::Unit => Term::Unit,
             Term::UnitTy => Term::UnitTy,
             Term::Refl => Term::Refl,

@@ -4,7 +4,7 @@ use std::fmt;
 use crate::ast::Term;
 use moniker::FreeVar;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Context {
     type_binding: HashMap<FreeVar<String>, Term>,
     term_binding: HashMap<FreeVar<String>, Term>,

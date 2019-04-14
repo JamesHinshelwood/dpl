@@ -11,7 +11,7 @@ impl Term {
 
 #[allow(clippy::many_single_char_names)]
 fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
-    println!("{} => ?", term);
+    //println!("{} => ?", term);
     match term {
         Term::Annot(tm, annot) => {
             check_with_ctx(ctx, annot, &Term::Type)?;
@@ -50,22 +50,6 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
             check_with_ctx(ctx, &ty, &Term::Type)?;
             infer_with_ctx(&ctx.with_type(&var, &ty), &body)
         }
-        Term::First(pair) => {
-            if let Term::Sigma(scope) = infer_with_ctx(ctx, pair)?.nf(ctx) {
-                let ((_, Embed(ty)), _) = scope.clone().unbind();
-                Ok(*ty)
-            } else {
-                Err(TypeError::FirstNonPair(*pair.clone()))
-            }
-        }
-        Term::Second(pair) => {
-            if let Term::Sigma(scope) = infer_with_ctx(ctx, pair)?.nf(ctx) {
-                let ((Binder(var), _), ty) = scope.clone().unbind();
-                Ok(ty.subst(&var, &Term::First(pair.clone())))
-            } else {
-                Err(TypeError::SecondNonPair(*pair.clone()))
-            }
-        }
         Term::Sigma(scope) => {
             let ((Binder(var), Embed(lhs)), rhs) = scope.clone().unbind();
             check_with_ctx(ctx, &lhs, &Term::Type)?;
@@ -73,13 +57,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
 
             Ok(Term::Type)
         }
-        Term::Sum(tys) => {
-            for (_, ty) in tys {
-                check_with_ctx(ctx, ty, &Term::Type)?;
-            }
-
-            Ok(Term::Type)
-        }
+        Term::Enum(_) => Ok(Term::Type),
         Term::Unit => Ok(Term::UnitTy),
         Term::UnitTy => Ok(Term::Type),
         Term::EqElim(c, p, scope) => {
@@ -165,7 +143,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
 }
 
 fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError> {
-    println!("{} <= {}", term, ty);
+    //println!("{} <= {}", term, ty);
     let ty = &ty.nf(ctx);
     match (term, ty) {
         (Term::Lam(lam_scope), Term::Pi(pi_scope)) => {
@@ -192,9 +170,29 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
 
             Ok(())
         }
-        (Term::Variant(label, tm), Term::Sum(tys)) => {
-            if let Some(ty) = lookup(label, tys) {
-                check_with_ctx(ctx, tm, &ty)?;
+        (Term::LetPair(let_scope), ann) => {
+            let (((Binder(x), Binder(y)), Embed(p)), rest) = let_scope.clone().unbind();
+            if let Term::Sigma(sigma_scope) = infer_with_ctx(ctx, &p)?.nf(ctx) {
+                let ((Binder(x_sigma), Embed(x_ty)), y_ty) = sigma_scope.clone().unbind();
+                let y_ty = y_ty.subst(&x_sigma, &Term::Var(Var::Free(x.clone())));
+                if let Term::Var(Var::Free(var)) = p.nf(ctx) {
+                    check_with_ctx(
+                        &ctx.with_type(&x, &x_ty)
+                            .with_type(&y, &y_ty)
+                            .with_term(&var, &Term::Pair(Term::Var(Var::Free(x.clone())).into(), Term::Var(Var::Free(y)).into())),
+                        &rest,
+                        ann,
+                    )?;
+                } else {
+                    check_with_ctx(&ctx.with_type(&x, &x_ty).with_type(&y, &y_ty), &rest, ann)?;
+                }
+                Ok(())
+            } else {
+                unimplemented!()
+            }
+        }
+        (Term::Variant(l), Term::Enum(ls)) => {
+            if ls.contains(l) {
                 Ok(())
             } else {
                 Err(TypeError::VariantBadLabel(term.clone(), ty.clone()))
@@ -202,14 +200,14 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
         }
         (Term::Case(s, cases), ann) => {
             // TODO: Check domain(cases) = domain(type)
-            if let Term::Sum(tys) = infer_with_ctx(ctx, s)?.nf(ctx) {
-                for (label, ty) in tys {
-                    if let Some(scope) = lookup(&label, cases) {
-                        if let Term::Var(var) = s.nf(ctx) {
-
+            if let Term::Enum(ls) = infer_with_ctx(ctx, s)?.nf(ctx) {
+                for l in ls {
+                    if let Some(body) = lookup(&l, cases) {
+                        if let Term::Var(Var::Free(var)) = s.nf(ctx) {
+                            println!("var is {}\ntm is {}\nin ctx {}\n", var, body.nf(ctx), ctx);
+                            check_with_ctx(&ctx.with_term(&var, &Term::Variant(l)), &body, ann)?;
                         } else {
-                            let (Binder(var), tm) = scope.unbind();
-                            check_with_ctx(&ctx.with_type(&var, &ty), &tm, ann)?;
+                            check_with_ctx(ctx, &body, ann)?;
                         }
                     } else {
                         return Err(TypeError::CaseBadLabel(term.clone()));
@@ -259,6 +257,8 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             if inf_ty.beq(&ty, ctx) {
                 Ok(())
             } else {
+                println!("inferred: {}\n", inf_ty);
+                println!("ctx: {}\n", ctx);
                 Err(TypeError::CouldNotCheck(term.clone(), ty.clone()))
             }
         }
