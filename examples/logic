@@ -1,3 +1,11 @@
+let subst = (\A.\x.\y.\P.\eq.case[\m.\n.\q.(P m -> P n)] eq of refl(x) -> (\m.m)) : (A : Type) -> (x : A) -> (y : A) -> (P : A -> Type) -> (x = y) -> P x -> P y in
+
+let eq_refl = (\A.\a. refl) : (A : Type) -> (x : A) -> (x = x) in
+let eq_symm = (\A.\x.\y.\p. case[\x.\y.\q.(y = x)] p of refl(x) -> refl) : (A : Type) -> (x : A) -> (y : A) -> (x = y) -> (y = x) in
+let eq_trans = (\A.\x.\y.\z.\p.\q. subst A y z (\w. (x = w)) q p) : (A : Type) -> (x : A) -> (y : A) -> (z : A) -> (x = y) -> (y = z) -> (x = z) in
+
+let eq_equiv = (eq_refl, eq_symm, eq_trans) : (((A : Type) -> (x : A) -> (x = x)) * ((A : Type) -> (x : A) -> (y : A) -> (x = y) -> (y = x)) * ((A : Type) -> (x : A) -> (y : A) -> (z : A) -> (x = y) -> (y = z) -> (x = z))) in
+
 let And = (\A.\B.(A * B)) : (A : Type) -> (B : Type) -> Type in
 let and_intro = (\A.\B.\a.\b.(a, b)) : (A : Type) -> (B : Type) -> A -> B -> And A B in
 let proj1 = (\A.\B.\p.let (a, b) = p in a) : (A : Type) -> (B : Type) -> And A B -> A in
@@ -10,13 +18,14 @@ let or_intro_left = (\A.\B.\a.('left, a)) : (A : Type) -> (B : Type) -> A -> Or 
 let or_intro_right = (\A.\B.\b.('right, b)) : (A : Type) -> (B : Type) -> B -> Or A B in
 let or_commut = (\A.\B.\o.let (l, r) = o in case l of left -> ('right, r) | right -> ('left, r)) : (A : Type) -> (B : Type) -> Or A B -> Or B A in
 let or_assoc = (\A.\B.\C.\o.let (l1, r1) = o in case l1 of left -> ('left, ('left, r1))
-                                                         | right -> (let (l2, r2) = r1 in 
+                                                        | right -> (let (l2, r2) = r1 in 
                                                             case l2 of left -> ('left, ('right, r2))
-                                                                     | right -> ('right, r2)))
+                                                                    | right -> ('right, r2)))
              : (A : Type) -> (B : Type) -> (C : Type) -> Or A (Or B C) -> Or (Or A B) C in
 
 let Void = {} in
 let not = (\P.(P -> Void)) : Type -> Type in
+let explosion = (\P.\v.case v of) : (P : Type) -> Void -> P in
 let not_false = (\x.x) : not Void in
 let double_neg = (\P.\p.\np.np p) : (P : Type) -> P -> not (not P) in
 let contrapositive = (\P.\Q.\pq.\qv.\p.qv (pq p)) : (P : Type) -> (Q : Type) -> (P -> Q) -> (not Q -> not P) in
@@ -24,6 +33,32 @@ let not_both_true_and_false = (\P.\a.let (p, pv) = a in pv p) : (P : Type) -> no
 
 let True = Unit in
 let true = (unit) : True in
+
+let dist_not_exists = (\X.\P.\f.\e.let (x, pfv) = e in pfv (f x)) : (X : Type) -> (P : X -> Type) -> ((x : X) -> P x) -> not ((x : X) * not (P x)) in
+let not_exists_dist : ((Q : Type) -> Or Q (not Q)) -> (X : Type) -> (P : X -> Type) -> not ((x : X) * not (P x)) -> ((x : X) -> P x) in
+
+let lem = (A : Type) -> Or A (not A) in
+let dne = (A : Type) -> not (not A) -> A in
+let peirce = (A : Type) -> (B : Type) -> ((A -> B) -> A) -> A in
+let demorgan = (A : Type) -> (B : Type) -> not ((not A) * (not B)) -> Or A B in
+
+let lem_to_dne = (\lem.\A.\nna.let (l, r) = lem A in case l of left -> r
+                                                            | right -> explosion A (double_neg (not A) r nna)
+             ) : lem -> dne in
+let dne_to_lem = (\dne.\A.dne (Or A (not A)) (\f.f ('right, (\x.f ('left, x))))) : dne -> lem in
+let lem_to_peirce = (\lem.\A.\B.\aba.let (l, r) = lem A in case l of left -> r
+                                                                  | right -> aba (\a.explosion B (r a))
+                ) : lem -> peirce in
+let peirce_to_lem = (\pe.\A.pe (Or A (not A)) (Void) (\lemv.('right, \a.lemv ('left, a)))) : peirce -> lem in
+let lem_to_demorgan = (\lem.\A.\B.\avbvv.let (l1, r1) = lem A in case l1 of left -> ('left, r1)
+                             | right -> (let (l2, r2) = lem B in case l2 of left -> ('right, r2)
+                                                                         | right -> ('left, explosion A (avbvv (r1, r2))))
+                  ) : lem -> demorgan in
+let foo = (\A.\avavv.let (av, avv) = avavv in avv av) : (A : Type) -> not ((not A) * (not (not A))) in
+let demorgan_to_lem = (\dm.\A.dm A (not A) (foo A)) : demorgan -> lem in
+
+
+let lem_irrefutable = (\A.\ov.ov ('right, \x.ov ('left, x))) : (A : Type) -> not (not (Or A (not A))) in
 
 let iff = (\P.\Q.And (P -> Q) (Q -> P)) : (P : Type) -> (Q : Type) -> Type in
 let iff_sym = (\P.\Q.\a.let (x, y) = a in (y, x)) : (P : Type) -> (Q : Type) -> iff P Q -> iff Q P in
@@ -36,7 +71,5 @@ let or_distributes_over_and = (\P.\Q.\R.let forw = (\o.let (l, r1) = o in case l
                                                  : (And (Or P Q) (Or P R)) -> (Or P (And Q R)) in
                                         (forw, back) : iff (Or P (And Q R)) (And (Or P Q) (Or P R)))
                             : (P : Type) -> (Q : Type) -> (R : Type) -> iff (Or P (And Q R)) (And (Or P Q) (Or P R)) in
-
-let excluded_middle_irrefutable = (\P.\ov.ov ('right, \x.ov ('left, x))) : (P : Type) -> not (not (Or P (not P))) in
 
 unit

@@ -1,4 +1,4 @@
-use crate::ast::{lookup, Term};
+use crate::ast::Term;
 use crate::context::Context;
 use crate::error::TypeError;
 use moniker::{Binder, Embed, FreeVar, Scope, Var};
@@ -199,15 +199,14 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             }
         }
         (Term::Case(s, cases), ann) => {
-            // TODO: Check domain(cases) = domain(type)
+            // FIXME: Exhaustiveness is not checked
             if let Term::Enum(ls) = infer_with_ctx(ctx, s)?.nf(ctx) {
-                for l in ls {
-                    if let Some(body) = lookup(&l, cases) {
+                for (l, term) in cases {
+                    if ls.contains(l) {
                         if let Term::Var(Var::Free(var)) = s.nf(ctx) {
-                            println!("var is {}\ntm is {}\nin ctx {}\n", var, body.nf(ctx), ctx);
-                            check_with_ctx(&ctx.with_term(&var, &Term::Variant(l)), &body, ann)?;
+                            check_with_ctx(&ctx.with_term(&var, &Term::Variant(l.to_string())), &term, ann)?;
                         } else {
-                            check_with_ctx(ctx, &body, ann)?;
+                            check_with_ctx(ctx, &term, ann)?;
                         }
                     } else {
                         return Err(TypeError::CaseBadLabel(term.clone()));
@@ -257,9 +256,9 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             if inf_ty.beq(&ty, ctx) {
                 Ok(())
             } else {
-                println!("inferred: {}\n", inf_ty);
-                println!("ctx: {}\n", ctx);
-                Err(TypeError::CouldNotCheck(term.clone(), ty.clone()))
+                            println!("ctx : {}", ctx);
+
+                Err(TypeError::CouldNotCheck(term.clone(), ty.clone(), inf_ty.clone()))
             }
         }
     }

@@ -101,6 +101,7 @@ impl fmt::Display for Term {
 }
 
 fn print_bound_var(var: &BoundVar<String>) -> String {
+    //return var.to_string();
     if let Some(name) = &var.pretty_name {
         name.to_string()
     } else {
@@ -109,6 +110,7 @@ fn print_bound_var(var: &BoundVar<String>) -> String {
 }
 
 pub fn print_free_var(var: &FreeVar<String>) -> String {
+    //return var.to_string();
     if let Some(name) = &var.pretty_name {
         name.to_string()
     } else {

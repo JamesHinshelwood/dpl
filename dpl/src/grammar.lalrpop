@@ -10,7 +10,7 @@ pub Term: Term = {
     "(" <v:Var> ":" <l:Term> ")" "->" <r:Term> => Term::Pi(v, l.into(), r.into()),
     "let" <v:Var> "=" <l:Term> "in" <r:Term> => Term::Let(v, l.into(), r.into()),
     "let" <v:Var> ":" <l:Term> "in" <r:Term> => Term::Decl(v, l.into(), r.into()),
-    <l:Atom> "," <r:Term> => Term::Pair(l.into(), r.into()),
+    <l:App> "," <r:Term> => Term::Pair(l.into(), r.into()),
     "let" "(" <x:Var> "," <y:Var> ")" "=" <p:Term> "in" <r:Term> => Term::LetPair(x, y, p.into(), r.into()),
     <l:App> "*" <r:Term> => Term::UnnamedSigma(l.into(), r.into()),
     "(" <v:Var> ":" <l:Term> ")" "*" <r:Term> => Term::Sigma(v, l.into(), r.into()),

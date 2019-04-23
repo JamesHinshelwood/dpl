@@ -15,16 +15,16 @@ impl fmt::Display for Context {
         let ty_b = self
             .type_binding
             .iter()
-            .map(|(k, v)| format!("{}: {}", crate::print::print_free_var(k), v))
+            .map(|(k, v)| format!("{} : {}", crate::print::print_free_var(k), v))
             .collect::<Vec<String>>()
-            .join(", ");
+            .join("\n");
         let tm_b = self
             .term_binding
             .iter()
             .map(|(k, v)| format!("{} = {}", crate::print::print_free_var(k), v))
             .collect::<Vec<String>>()
-            .join(", ");
-        write!(f, "{} ; {}", ty_b, tm_b)
+            .join("\n");
+        write!(f, "{} ;\n{}", ty_b, tm_b)
     }
 }
 

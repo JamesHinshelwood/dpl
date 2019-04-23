@@ -17,7 +17,7 @@ pub enum TypeError {
     CaseBadLabel(Term),
     CaseNonSum(Term),
     ReflNonEqual(Term, Term),
-    CouldNotCheck(Term, Term),
+    CouldNotCheck(Term, Term, Term),
 }
 
 impl fmt::Display for TypeError {
@@ -65,8 +65,8 @@ impl fmt::Display for TypeError {
                 "Tried to construct a refl of non-equal terms, {} and {}",
                 x, y
             ),
-            TypeError::CouldNotCheck(tm, ty) => {
-                write!(f, "Could not check {} was of type {}", tm, ty)
+            TypeError::CouldNotCheck(tm, ty, inf_ty) => {
+                write!(f, "Could not check {} was of type {}, instead its typed was inferred as {}", tm, ty, inf_ty)
             }
         }
     }

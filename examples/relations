@@ -1,0 +1,41 @@
+let Nat = (~n.\u.(l : {zero | succ}) * (case l of zero -> Unit | succ -> n u)) : Unit -> Type in
+let 0 = (fold('zero, unit)) : Nat unit in
+let succ = (\n.fold('succ, n)) : Nat unit -> Nat unit in
+let plus = (fix (\f.\m.\n. let (l, r) = unfold m in case l of zero -> n | succ -> succ (f r n))) : Nat unit -> Nat unit -> Nat unit in
+let 1 = succ 0 in let 2 = succ 1 in let 3 = succ 2 in let 4 = succ 3 in let 5 = succ 4 in let 6 = succ 5 in
+
+let And = (\A.\B.(A * B)) : (A : Type) -> (B : Type) -> Type in
+let Or = (\A.\B.((l : {left | right}) * (case l of left -> A | right -> B))) : (A : Type) -> (B : Type) -> Type in
+let Void = {} in
+let not = (\P.(P -> Void)) : Type -> Type in
+
+let relation = (\X.(X * X) -> Type) : Type -> Type in
+let partial_function = (\X.\R.(x : X) -> (y1 : X) -> (y2 : X) -> R (x, y1) -> R (x, y2) -> (y1 = y2)) : (X : Type) -> relation X -> Type in
+let reflexive = (\X.\R.(a : X) -> R (a, a)) : (X : Type) -> relation X -> Type in
+let transitive = (\X.\R.(a : X) -> (b : X) -> (c : X) -> R (a, b) -> R (b, c) -> R (a, c)) : (X : Type) -> relation X -> Type in
+let symmetric = (\X.\R.(a : X) -> (b : X) -> R (a, b) -> R (b, a)) : (X : Type) -> relation X -> Type in
+let antisymmetric = (\X.\R.(a : X) -> (b : X) -> R (a, b) -> R (b, a) -> (a = b)) : (X : Type) -> relation X -> Type in
+
+let equivalence = (\X.\R.(reflexive X R) * (symmetric X R) * (transitive X R)) : (X : Type) -> relation X -> Type in
+let partial_order = (\X.\R.(reflexive X R) * (antisymmetric X R) * (transitive X R)) : (X : Type) -> relation X -> Type in
+let preorder = (\X.\R.(reflexive X R) * (transitive X R)) : (X : Type) -> relation X -> Type in
+
+let succ_pair = (\mn.let (m, n) = mn in (succ m, succ n)) : (Nat unit * Nat unit) -> (Nat unit * Nat unit) in
+
+let leq = (~p.\mn.(l : {ZN | SS}) * (case l of ZN -> (let (m, n) = mn in (m = 0)) | SS -> ((op : (Nat unit * Nat unit)) * p op * (mn = succ_pair op)))) : relation (Nat unit) in 
+let leq_zn = (\n.fold('ZN, refl)) : (n : Nat unit) -> leq (0, n) in
+let leq_ss = (\m.\n.\p.fold('SS, ((m, n), p, refl))) : (m : Nat unit) -> (n : Nat unit) -> leq (m, n) -> leq (succ m, succ n) in
+
+let test_leq1 = (leq_ss 2 2 (leq_ss 1 1 (leq_ss 0 0 (leq_zn 0)))) : leq (3, 3) in
+let test_leq2 = (leq_ss 2 5 (leq_ss 1 4 (leq_ss 0 3 (leq_zn 3)))) : leq (3, 6) in
+
+let lt = (\mn.let (m, n) = mn in leq (succ m, n)) : relation (Nat unit) in
+let geq = (\mn.let (m, n) = mn in leq (n, m)) : relation (Nat unit) in
+let gt = (\mn.let (m, n) = mn in lt (n, m)) : relation (Nat unit) in
+
+let total_relation = (\mn.Unit) : relation (Nat unit) in
+let empty_relation = (\mn.Void) : relation (Nat unit) in
+
+let 
+
+unit

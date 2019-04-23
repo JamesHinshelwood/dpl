@@ -1,13 +1,28 @@
-let Nat = (~n.\u.(b : {zero | succ}) * (case b of zero -> Unit | succ -> n u)) : Unit -> Type in
+let Void = {} in
+let void_elim = (\A.\v.case v of) : (A : Type) -> Void -> A in
+
+let subst = (\A.\x.\y.\P.\eq.case[\m.\n.\q.(P m -> P n)] eq of refl(x) -> (\m.m)) : (A : Type) -> (x : A) -> (y : A) -> (P : A -> Type) -> (x = y) -> P x -> P y in
+
+let Nat = (~n.\u.(l : {zero | succ}) * (case l of zero -> Unit | succ -> n u)) : Unit -> Type in
 let 0 = (fold('zero, unit)) : Nat unit in
 let succ = (\n.fold('succ, n)) : Nat unit -> Nat unit in
+let 1 = succ 0 in let 2 = succ 1 in
 let plus = (fix (\f.\m.\n. let (l, r) = unfold m in case l of zero -> n | succ -> succ (f r n))) : Nat unit -> Nat unit -> Nat unit in
-let 1 = succ 0 in
-let 2 = succ 1 in
 
-let plus_0_n = (\n.refl) : (n : Nat unit) -> (plus 0 n = n) in
-let plus_1_l = (\n.refl) : (n : Nat unit) -> (plus 1 n = succ n) in
-let plus_id = (\n.\m.\p. case[\x.\y.\q.(plus x x = plus y y)] p of refl(x) -> refl) : (n : Nat unit) -> (m : Nat unit) -> (n = m) -> (plus n n = plus m m) in
-let plus_n_0 = (fix (\f.\n.let (l, r) = unfold n in case l of zero -> refl | succ -> let i = f r in )) : (n : Nat unit) -> (plus n 0 = n) in
+let c_nat = (\x.\y.\q.let (l1, r1) = unfold x in case l1 of zero -> (let (l2, r2) = unfold y in case l2 of zero -> Unit
+                                                                                                         | succ -> Void)
+                                                          | succ -> (let (l2, r2) = unfold y in case l2 of zero -> Void
+                                                                                                         | succ -> (r1 = r2))
+        ) : (x : Nat unit) -> (y : Nat unit) -> (x = y) -> Type in
+let k_nat = (\z.let (l, r) = unfold z in case l of zero -> unit | succ -> refl) : (z : Nat unit) -> c_nat z z refl in
+let succ_inj : (m : Nat unit) -> (n : Nat unit) -> (succ m = succ n) -> (m = n) in
+
+
+
+l = zero, r : Unit |- unit : c_nat z z refl
+---------------------------------------------------------------------------------------------------------------------------
+(((z = (l, r)))), l : {zero, succ}, r : (case l of zero -> Unit | succ -> Nat) |- case l of zero -> unit | succ -> refl : c_nat z z refl
+---------------------------------------------------------------------------------------------------------------------------
+z : Nat |- let (l, r) = unfold z in case l of zero -> unit | succ -> refl : c_nat z z refl
 
 plus 2 1

@@ -1,0 +1,23 @@
+let Nat = (~n.\u.(l : {zero | succ}) * (case l of zero -> Unit | succ -> n u)) : Unit -> Type in
+let 0 = (fold('zero, unit)) : Nat unit in
+let succ = (\n.fold('succ, n)) : Nat unit -> Nat unit in
+let plus = (fix (\f.\m.\n. let (l, r) = unfold m in case l of zero -> n | succ -> succ (f r n))) : Nat unit -> Nat unit -> Nat unit in
+let 1 = succ 0 in
+let 2 = succ 1 in
+
+let Fin = (~f.\n.(l : {zero | succ}) * (case l of zero -> ((m : Nat unit) * (n = succ m)) | succ -> ((m : Nat unit) * f m * (n = succ m)))) : (Nat unit) -> Type in
+let F0 = (\n.fold('zero, (n, refl))) : (n : Nat unit) -> Fin (succ n) in
+let FS = (\n.\f.fold('succ, (n, f, refl))) : (n : Nat unit) -> Fin n -> Fin (succ n) in
+
+let A : Type in
+let Vec = (~v.\n.(l : {nil | cons}) * (case l of nil -> (n = 0) | cons -> ((m : Nat unit) * A * v m * (n = succ m)))) : (Nat unit) -> Type in
+let nil = (fold('nil, refl)) : Vec 0 in
+let cons = (\a.\n.\v.fold('cons, (n, a, v, refl))) : A -> (n : Nat unit) -> Vec n -> Vec (succ n) in
+let head = (\n.\v.(let (l, r) = unfold v in case l of cons -> (let (m, ave) = r in (let (a, ve) = ave in a)))) : (n : Nat unit) -> Vec (succ n) -> A in
+let tail = (\n.\v.(let (l, r) = unfold v in case l of cons -> (let (m, awe) = r in (let (a, we) = awe in (let (w, e) = we in w))))) : (n : Nat unit) -> Vec (succ n) -> Vec n in
+
+let index = (\A.\n.\f.\v.let (l, r) = unfold n in case l of zero -> 
+                                                          | succ -> 
+        ) : (A : Type) -> (n : Nat unit) -> Fin n -> Vect A n -> A in
+
+unit
