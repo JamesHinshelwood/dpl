@@ -1,4 +1,4 @@
-use dpl::{parse_term, Term};
+use pimu::{parse_term, Term};
 use moniker::assert_term_eq;
 
 #[test]

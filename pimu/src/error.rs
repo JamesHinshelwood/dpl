@@ -65,9 +65,11 @@ impl fmt::Display for TypeError {
                 "Tried to construct a refl of non-equal terms, {} and {}",
                 x, y
             ),
-            TypeError::CouldNotCheck(tm, ty, inf_ty) => {
-                write!(f, "Could not check {} was of type {}, instead its typed was inferred as {}", tm, ty, inf_ty)
-            }
+            TypeError::CouldNotCheck(tm, ty, inf_ty) => write!(
+                f,
+                "Expected type {}, but {} has type {}",
+                ty, tm, inf_ty
+            ),
         }
     }
 }

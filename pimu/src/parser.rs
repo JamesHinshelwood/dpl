@@ -63,7 +63,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_sums() {
+    fn repeated_products() {
         let term1 = parse_term("\\W.\\X.\\Y.\\Z.(W * X * Y * Z)").unwrap();
         let term2 = parse_term("\\W.\\X.\\Y.\\Z.(W * (X * (Y * Z)))").unwrap();
 

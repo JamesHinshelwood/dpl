@@ -16,11 +16,16 @@ pub enum Term {
     Let(Scope<(Binder<NameRepr>, Embed<Box<Term>>), Box<Term>>),
     Decl(Scope<(Binder<NameRepr>, Embed<Box<Term>>), Box<Term>>),
     Pair(Box<Term>, Box<Term>),
-    LetPair(Scope<((Binder<NameRepr>, Binder<NameRepr>), Embed<Box<Term>>), Box<Term>>),
+    First(Box<Term>),
+    Second(Box<Term>),
     Sigma(Scope<(Binder<NameRepr>, Embed<Box<Term>>), Box<Term>>),
-    Variant(String),
-    Case(Box<Term>, Vec<(String, Term)>),
-    Enum(Vec<String>),
+    Variant(String, Box<Term>),
+    Case(
+        Box<Term>,
+        Option<Scope<Binder<NameRepr>, Box<Term>>>,
+        Vec<(String, Scope<Binder<NameRepr>, Term>)>,
+    ),
+    Enum(Vec<(String, Term)>),
     Unit,
     UnitTy,
     Refl,
@@ -79,16 +84,8 @@ impl Term {
                 lhs.subst(name, replacement).into(),
                 rhs.subst(name, replacement).into(),
             ),
-            Term::LetPair(scope) => {
-                let ((x, y), Embed(p)) = &scope.unsafe_pattern;
-                Term::LetPair(Scope {
-                    unsafe_pattern: (
-                        (x.clone(), y.clone()),
-                        Embed(p.subst(name, replacement).into()),
-                    ),
-                    unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
-                })
-            }
+            Term::First(p) => Term::First(p.subst(name, replacement).into()),
+            Term::Second(p) => Term::Second(p.subst(name, replacement).into()),
             Term::Sigma(scope) => {
                 let (var, Embed(l)) = &scope.unsafe_pattern;
                 Term::Sigma(Scope {
@@ -96,15 +93,33 @@ impl Term {
                     unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
                 })
             }
-            Term::Variant(l) => Term::Variant(l.to_string()),
-            Term::Case(s, cases) => Term::Case(
-                s.subst(name, replacement).into(),
+            Term::Variant(lbl, tm) => {
+                Term::Variant(lbl.to_string(), tm.subst(name, replacement).into())
+            }
+            Term::Case(sm, annot, cases) => Term::Case(
+                sm.subst(name, replacement).into(),
+                annot.clone().map(|scope| Scope {
+                    unsafe_pattern: scope.unsafe_pattern.clone(),
+                    unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
+                }),
                 cases
                     .iter()
-                    .map(|(l, tm)| (l.to_string(), tm.subst(name, replacement)))
+                    .map(|(lbl, scope)| {
+                        (
+                            lbl.to_string(),
+                            Scope {
+                                unsafe_pattern: scope.unsafe_pattern.clone(),
+                                unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
+                            },
+                        )
+                    })
                     .collect(),
             ),
-            Term::Enum(ls) => Term::Enum(ls.to_vec()),
+            Term::Enum(tys) => Term::Enum(
+                tys.iter()
+                    .map(|(lbl, ty)| (lbl.to_string(), ty.subst(name, replacement).into()))
+                    .collect(),
+            ),
             Term::Unit => Term::Unit,
             Term::UnitTy => Term::UnitTy,
             Term::Refl => Term::Refl,

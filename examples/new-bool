@@ -6,3 +6,18 @@ let Foo = (\b. case b of true -> Bool | false -> Unit) : Bool -> Type in
 let bar = (\b. case b of true -> false | false -> unit) : (b : Bool) -> Foo b in
 
 bar true
+
+
+
+let 1 = succ 0 in
+
+let c_nat = (\x.\y.\p. case unfold x of <zero = u> -> (case unfold y of <zero = u> -> Unit
+                                                                     | <succ = y'> -> Void)
+                                     | <succ = x'> -> (case unfold y of <zero = u> -> Void
+                                                                      | <succ = y'> -> (x' = y'))
+        ) : (x : Nat unit) -> (y : Nat unit) -> (x = y) -> Type in
+let k_nat = (\z.case unfold z [z.c_nat (fold z) (fold z) refl] of <zero = u> -> unit | <succ = z'> -> refl) : (z : Nat unit) -> c_nat z z refl in
+
+
+let plus_1_l = (\n.refl) : (n : Nat unit) -> (plus 1 n = succ n) in
+let plus_id = (\n.\m.\p. case[\x.\y.\q.(plus x x = plus y y)] p of refl(x) -> refl) : (n : Nat unit) -> (m : Nat unit) -> (n = m) -> (plus n n = plus m m) in

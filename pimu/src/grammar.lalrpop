@@ -11,17 +11,23 @@ pub Term: Term = {
     "let" <v:Var> "=" <l:Term> "in" <r:Term> => Term::Let(v, l.into(), r.into()),
     "let" <v:Var> ":" <l:Term> "in" <r:Term> => Term::Decl(v, l.into(), r.into()),
     <l:App> "," <r:Term> => Term::Pair(l.into(), r.into()),
-    "let" "(" <x:Var> "," <y:Var> ")" "=" <p:Term> "in" <r:Term> => Term::LetPair(x, y, p.into(), r.into()),
+    <App> ".1" => Term::First(<>.into()),
+    <App> ".2" => Term::Second(<>.into()),
     <l:App> "*" <r:Term> => Term::UnnamedSigma(l.into(), r.into()),
     "(" <v:Var> ":" <l:Term> ")" "*" <r:Term> => Term::Sigma(v, l.into(), r.into()),
-    "case" <s:Term> "of" <cs:Mid<Case>> => Term::Case(s.into(), cs),
+    "case" <a:CaseAnnot> <s:Term> "of" <cs:List<Case, "|">> => Term::Case(s.into(), a, cs),
     "case" "[" <c:Term> "]" <p:Term> "of" "refl" "(" <v:Var> ")" "->" <t:Term> => Term::EqElim(c.into(), p.into(), v, t.into()),
     <x:App> "=" <y:App> => Term::EqTy(x.into(), y.into()),
     "~" <a:Var> "." "\\" <x:Var> "." <tm:Term> => Term::Rec(a, x, tm.into()),
 };
 
-Mid<T>: Vec<T> = {
-    <v:(<T> "|")*> <e:T?> => match e {
+CaseAnnot: Option<(String, Box<Term>)> = {
+    "[" <v:Var> "." <t:Term> "]" => Some((v, t.into())),
+    () => None,
+};
+
+List<T, U>: Vec<T> = {
+    <v:(<T> U)*> <e:T?> => match e {
         None => v,
         Some(e) => {
             let mut v = v;
@@ -31,9 +37,13 @@ Mid<T>: Vec<T> = {
     }
 };
 
-Case: (String, Term) = {
-    <Var> "->" <App> => (<>),
+Case: (String, String, Term) = {
+    "<" <Var> "=" <Var> ">" "->" <App> => (<>),
 };
+
+Sum: (String, Term) = {
+    <Var> ":" <Term> => (<>),
+}
 
 App: Term = {
     <l:App> <r:Atom> => Term::App(l.into(), r.into()),
@@ -42,8 +52,8 @@ App: Term = {
 
 Atom: Term = {
     "(" <Term> ")" => <>,
-    "'" <Var> => Term::Variant(<>),
-    "{" <Mid<Var>> "}" => Term::Enum(<>),
+    "<" <v:Var> "=" <t:Term> ">" => Term::Variant(v, t.into()),
+    "<" <List<Sum, "+">> ">" => Term::Enum(<>),
     "fold" <Atom> => Term::Fold(<>.into()),
     "unfold" <Atom> => Term::Unfold(<>.into()),
     "fix" <Atom> => Term::Fix(<>.into()),
@@ -52,9 +62,8 @@ Atom: Term = {
     "Unit" => Term::UnitTy,
     "refl" => Term::Refl,
     Var => Term::Var(<>),
-    "_" => Term::UnnamedVar,
 };
 
 Var: String = {
-    r"[a-zA-Z0-9_]+" => <>.to_string(),
+    r"[a-zA-Z0-9'_]+" => <>.to_string(),
 };

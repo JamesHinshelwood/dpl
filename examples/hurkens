@@ -1,0 +1,19 @@
+let False = (P : Type) -> P in
+let not = (\A.A -> False) : Type -> Type in
+
+let P = (\S.(S -> Type)) : Type -> Type in
+
+let U = ((X : Type) -> (P (P X) -> X) -> P (P X)) : Type in
+let tau = (\t.\X.\f.\p.t (\x.p (f (x X f)))) : (P (P U)) -> U in
+let sigma = (\s.s U (\t.tau t)) : U -> P (P U) in
+let Delta = (\y.not ((p : P U) -> sigma y p -> p (tau (sigma y)))) : P U in
+let Omega = (tau (\p.(x : U) -> sigma x p -> p x)) : U in
+
+let D = (p : P U) -> sigma Omega p -> p (tau (sigma Omega)) in
+let lem1 = (\p.\h1.h1 Omega (\x.h1 (tau (sigma x)))) : (p : P U) -> ((x : U) -> sigma x p -> p x) -> p Omega in
+let lem2 = (lem1 Delta (\x.\h2.\h3.h3 Delta h2 (\p.h3 (\y.p (tau (sigma y)))))) : not D in
+let lem3 = (\p.lem1 (\y.p (tau (sigma y)))) : D in
+
+let loop = (lem2 lem3) : False in
+
+loop

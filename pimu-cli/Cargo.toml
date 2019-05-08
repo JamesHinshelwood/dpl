@@ -1,9 +1,9 @@
 [package]
-name = "dpl-cli"
+name = "pimu-cli"
 version = "0.1.0"
 authors = ["James Hinshelwood <jadh2@cam.ac.uk>"]
 edition = "2018"
 
 [dependencies]
-dpl = { path = "../dpl" }
+pimu = { path = "../pimu" }
 structopt = "0.2.15"

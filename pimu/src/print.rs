@@ -37,17 +37,8 @@ impl fmt::Display for Term {
                 write!(f, "let {} : {} in\n{}", print_free_var(&var), l, r)
             }
             Term::Pair(l, r) => write!(f, "({}, {})", l, r),
-            Term::LetPair(scope) => {
-                let (((Binder(x), Binder(y)), Embed(p)), r) = scope.clone().unbind();
-                write!(
-                    f,
-                    "let ({}, {}) = {} in {}",
-                    print_free_var(&x),
-                    print_free_var(&y),
-                    p,
-                    r
-                )
-            }
+            Term::First(p) => write!(f, "{}.1", p),
+            Term::Second(p) => write!(f, "{}.2", p),
             Term::Sigma(scope) => {
                 let ((Binder(var), Embed(l)), r) = scope.clone().unbind();
                 if r.free_vars().contains(&var) {
@@ -56,18 +47,37 @@ impl fmt::Display for Term {
                     write!(f, "({} * {})", l, r)
                 }
             }
-            Term::Variant(l) => write!(f, "'{}", l),
-            Term::Case(s, cases) => write!(
+            Term::Variant(lbl, tm) => write!(f, "<{} = {}>", lbl, tm),
+            Term::Case(sm, annot, cases) => {
+                let annot = if let Some(scope) = annot {
+                    let (Binder(var), tm) = scope.clone().unbind();
+                    format!("[{}. {}] ", print_free_var(&var), tm)
+                } else {
+                    String::new()
+                };
+                write!(
+                    f,
+                    "case {}{} of {}",
+                    annot,
+                    sm,
+                    cases
+                        .iter()
+                        .map(|(label, scope)| {
+                            let (Binder(var), body) = scope.clone().unbind();
+                            format!("<{} = {}> -> {}", label, print_free_var(&var), body)
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ")
+                )
+            }
+            Term::Enum(tys) => write!(
                 f,
-                "case {} of {}",
-                s,
-                cases
-                    .iter()
-                    .map(|(label, body)| format!("{} -> {}", label, body))
-                    .collect::<Vec<String>>()
+                "<{}>",
+                tys.iter()
+                    .map(|(lbl, ty)| format!("{} : {}", lbl, ty))
+                    .collect::<Vec<_>>()
                     .join(" | ")
             ),
-            Term::Enum(ls) => write!(f, "{{{}}}", ls.join(" | ")),
             Term::Unit => write!(f, "unit"),
             Term::UnitTy => write!(f, "Unit"),
             Term::Refl => write!(f, "refl"),

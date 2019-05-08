@@ -7,7 +7,6 @@ use moniker::{Binder, Embed, FreeVar, Scope, Var};
 pub enum ConcreteTerm {
     Annot(Box<ConcreteTerm>, Box<ConcreteTerm>),
     Type,
-    UnnamedVar,
     Var(String),
     Lam(String, Box<ConcreteTerm>),
     App(Box<ConcreteTerm>, Box<ConcreteTerm>),
@@ -17,12 +16,17 @@ pub enum ConcreteTerm {
     Let(String, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Decl(String, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Pair(Box<ConcreteTerm>, Box<ConcreteTerm>),
-    LetPair(String, String, Box<ConcreteTerm>, Box<ConcreteTerm>),
+    First(Box<ConcreteTerm>),
+    Second(Box<ConcreteTerm>),
     UnnamedSigma(Box<ConcreteTerm>, Box<ConcreteTerm>),
     Sigma(String, Box<ConcreteTerm>, Box<ConcreteTerm>),
-    Variant(String),
-    Case(Box<ConcreteTerm>, Vec<(String, ConcreteTerm)>),
-    Enum(Vec<String>),
+    Variant(String, Box<ConcreteTerm>),
+    Case(
+        Box<ConcreteTerm>,
+        Option<(String, Box<ConcreteTerm>)>,
+        Vec<(String, String, ConcreteTerm)>,
+    ),
+    Enum(Vec<(String, ConcreteTerm)>),
     Unit,
     UnitTy,
     Refl,
@@ -80,7 +84,6 @@ impl ConcreteTerm {
                 ty._to_raw(vars.clone()).into(),
             ),
             ConcreteTerm::Type => Term::Type,
-            ConcreteTerm::UnnamedVar => Term::Var(Var::Free(FreeVar::fresh_unnamed())),
             ConcreteTerm::Var(name) => Term::Var(Var::Free(vars.get_var(&name))),
             ConcreteTerm::Lam(name, body) => {
                 let (var, vars) = vars.add_var(name);
@@ -123,17 +126,8 @@ impl ConcreteTerm {
                 l._to_raw(vars.clone()).into(),
                 r._to_raw(vars.clone()).into(),
             ),
-            ConcreteTerm::LetPair(x, y, p, r) => {
-                let (x_var, new_vars) = vars.add_var(x);
-                let (y_var, new_vars) = new_vars.add_var(y);
-                Term::LetPair(Scope::new(
-                    (
-                        (Binder(x_var), Binder(y_var)),
-                        Embed(p._to_raw(vars.clone()).into()),
-                    ),
-                    r._to_raw(new_vars).into(),
-                ))
-            }
+            ConcreteTerm::First(p) => Term::First(p._to_raw(vars).into()),
+            ConcreteTerm::Second(p) => Term::Second(p._to_raw(vars).into()),
             ConcreteTerm::UnnamedSigma(l, r) => Term::Sigma(Scope::new(
                 (
                     Binder(FreeVar::fresh_unnamed()),
@@ -148,15 +142,31 @@ impl ConcreteTerm {
                     r._to_raw(new_vars).into(),
                 ))
             }
-            ConcreteTerm::Variant(l) => Term::Variant(l.to_string()),
-            ConcreteTerm::Case(s, cases) => Term::Case(
-                s._to_raw(vars.clone()).into(),
+            ConcreteTerm::Variant(lbl, tm) => {
+                Term::Variant(lbl.to_string(), tm._to_raw(vars.clone()).into())
+            }
+            ConcreteTerm::Case(sm, annot, cases) => Term::Case(
+                sm._to_raw(vars.clone()).into(),
+                annot.clone().map(|(name, tm)| {
+                    let (var, new_vars) = vars.add_var(&name);
+                    Scope::new(Binder(var), tm._to_raw(new_vars.clone()).into())
+                }),
                 cases
                     .iter()
-                    .map(|(l, tm)| (l.to_string(), tm._to_raw(vars.clone())))
+                    .map(|(lbl, name, tm)| {
+                        let (var, new_vars) = vars.add_var(&name);
+                        (
+                            lbl.to_string(),
+                            Scope::new(Binder(var), tm._to_raw(new_vars.clone())),
+                        )
+                    })
                     .collect(),
             ),
-            ConcreteTerm::Enum(ls) => Term::Enum(ls.to_vec()),
+            ConcreteTerm::Enum(tys) => Term::Enum(
+                tys.iter()
+                    .map(|(lbl, ty)| (lbl.to_string(), ty._to_raw(vars.clone())))
+                    .collect(),
+            ),
             ConcreteTerm::Unit => Term::Unit,
             ConcreteTerm::UnitTy => Term::UnitTy,
             ConcreteTerm::Refl => Term::Refl,

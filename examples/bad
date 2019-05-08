@@ -1,0 +1,12 @@
+let False = <> in
+
+let Bad = (~b.\u.(b u -> False)) : Unit -> Type in
+let bad = (\f.fold f) : (Bad unit -> False) -> Bad unit in
+
+let bad_false = (\b.(unfold b) b) : Bad unit -> False in
+
+let bad_true = (bad bad_false) : Bad unit in
+
+let absurd = (bad_false bad_true) : False in
+
+absurd

@@ -25,4 +25,71 @@ l = zero, r : Unit |- unit : c_nat z z refl
 ---------------------------------------------------------------------------------------------------------------------------
 z : Nat |- let (l, r) = unfold z in case l of zero -> unit | succ -> refl : c_nat z z refl
 
+
+
+|- unit : c_nat z z refl [fold <zero = u>/z]     |- refl : c_nat z z refl [fold <succ = z'>/z]
+---------------------------------------------------------------------------------------------------
+z : Nat |- case unfold z [z.fold z] of <zero = u> -> unit | <succ = z'> -> refl : c_nat z z refl [fold z/z]
+---------------------------------------------------------------------------------------------------
+|- \z. case unfold z [z.fold z] of <zero = u> -> unit | <succ = z'> -> refl : (z : Nat) -> c_nat z z refl
+
+
+foo = \A. case unfold A of 0 -> Unit | succ -> (0 = 0) : Nat -> Type
+bar = \a. case unfold a of 0 -> unit | succ -> refl    : (n : Nat) -> foo n
+
+
+
+
+|- unit : c_nat z z refl [<zero = u> / z]
+------------------------------------------------------------------------------------------------------------------------
+z : Nat |- case unfold z [z.c_nat (fold z) (fold z) refl] of <zero = u> -> unit | <succ = z'> -> refl : c_nat (fold z) (fold z) refl [unfold z / z]
+
+
+|- unit : c_nat z z refl [fold z / z] [<zero = u> / z]
+----------------------------------------------------------------------------------------------------------------------------
+z : Nat |- case unfold z [z.fold z] of <zero = u> -> unit | <succ = z'> -> refl : c_nat z z refl [fold z / z] [unfold z / z]
+
+
+
+G |- e => A + B
+G, y : A |- e1 <= C [t / x] [inl y / x]
+G, z : B |- e2 <= C [t / x] [inr z / x]
+D = C [t / x] [e / x]
+--------------------------------------------------------------------
+G |- case e [x.t] of inl y -> e1 | inr z -> e2 <= D
+
+G |- e => A + B
+G, y : A |- e1 <= C
+G, z : A |- e2 <= C
+--------------------------------------------------------------------
+G |- case e of inl y -> e1 | inr z -> e2 <= C
+
+
+
+G |- e => A + B
+G, y : A |- e1 <= C [inl y / x]
+G, z : B |- e2 <= C [inr z / x]
+--------------------------------------------------------------------
+G |- case e [x.C] of inl y -> e1 | inr z -> e2 => C [e / x]
+
+G |- x => A + B
+G, y : A |- e1 : C
+G, z : A |- e2 : C
+---------------------------------------------
+G |- case e of inl y -> e1 | inr z -> e2 <= C
+
+
+Nat = ~n.<0 : Unit + succ : n>
+0 = fold <0 = unit>
+succ = \n.fold <succ = n>
+
+----------------------------------------------------------------------------------------------------------------------------------------
+a : Nat |- unfold a : <0 : Unit + succ : Nat>   |- unit : foo a [fold <0 = u> / a]      n' : Nat |- refl : foo a [fold <succ = n'> / a]
+----------------------------------------------------------------------------------------------------------------------------------------
+a : Nat |- case unfold a of <0 = _> -> unit | <succ = n'> -> refl : foo a [a / a]
+---------------------------------------------------------------------------------------------------
+|- \a. case unfold a of <0 = _> -> unit | <succ = n'> -> refl : (n : Nat) -> foo n
+
+
+
 plus 2 1

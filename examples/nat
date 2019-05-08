@@ -1,13 +1,24 @@
-let subst = (\A.\x.\y.\P.\eq.case[\m.\n.\q.(P m -> P n)] eq of refl(x) -> (\m.m)) : (A : Type) -> (x : A) -> (y : A) -> (P : A -> Type) -> (x = y) -> P x -> P y in
+let Void = <> in
+let void_elim = (\A.\v.case v of) : (A : Type) -> Void -> A in
+
 
 let Nat = (~n.\u.<zero : Unit + succ : n u>) : Unit -> Type in
 let 0 = (fold(<zero = unit>)) : Nat unit in
 let succ = (\n.fold(<succ = n>)) : Nat unit -> Nat unit in
+let 1 = succ 0 in let 2 = succ 1 in
 let plus = (fix (\f.\m.\n. case unfold m of <zero = x> -> n | <succ = m'> -> succ (f m' n))) : Nat unit -> Nat unit -> Nat unit in
-let 1 = succ 0 in
 
-let plus_0_n = (\n.refl) : (n : Nat unit) -> (plus 0 n = n) in
-let plus_1_l = (\n.refl) : (n : Nat unit) -> (plus 1 n = succ n) in
-let plus_id = (\n.\m.\p. case[\x.\y.\q.(plus x x = plus y y)] p of refl(x) -> refl) : (n : Nat unit) -> (m : Nat unit) -> (n = m) -> (plus n n = plus m m) in
+let foo = (refl) : (plus 1 1 = 2) in
 
 unit
+
+fix (\f. (\m. (\n. case unfold(m) of <zero = x> -> n | <succ = m'> -> ((\n. fold(<succ = n>)) ((f m') n)))))
+((\n. fold(<succ = n>)) fold(<zero = unit>))
+
+
+((\n. fold(<succ = n>)) fold(<zero = unit>))
+
+
+
+
+and ((\n. fold(<succ = n>)) ((\n. fold(<succ = n>)) fold(<zero = unit>)))

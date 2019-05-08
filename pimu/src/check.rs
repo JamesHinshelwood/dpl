@@ -1,4 +1,4 @@
-use crate::ast::Term;
+use crate::ast::{lookup, Term};
 use crate::context::Context;
 use crate::error::TypeError;
 use moniker::{Binder, Embed, FreeVar, Scope, Var};
@@ -23,7 +23,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
             .get_type(free_var)
             .ok_or_else(|| TypeError::VarUnbound(free_var.clone())),
         Term::App(lhs, rhs) => {
-            if let Term::Pi(scope) = infer_with_ctx(ctx, lhs)?.nf(ctx) {
+            if let Term::Pi(scope) = infer_with_ctx(ctx, lhs)?.eval(ctx, false) {
                 let ((var, Embed(arg_ty)), ret_ty) = scope.unbind(); // TODO: Binder<_> ?
                 check_with_ctx(ctx, rhs, &arg_ty)?;
 
@@ -42,7 +42,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
         Term::Let(scope) => {
             let ((Binder(var), Embed(tm)), body) = scope.clone().unbind();
             let ty = infer_with_ctx(ctx, &tm)?;
-            infer_with_ctx(&ctx.with_type(&var, &ty).with_term(&var, &tm), &body)
+            infer_with_ctx(&ctx.with_type(&var, &ty.eval(ctx, false)).with_term(&var, &tm), &body)
             //infer_with_ctx(&ctx.with_type(&var, &ty), &body.subst(&var, &tm))
         }
         Term::Decl(scope) => {
@@ -57,7 +57,59 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
 
             Ok(Term::Type)
         }
-        Term::Enum(_) => Ok(Term::Type),
+        Term::First(p) => {
+            if let Term::Sigma(scope) = infer_with_ctx(ctx, p)?.eval(ctx, false) {
+                let ((_, Embed(ty)), _) = scope.unbind();
+
+                Ok(*ty)
+            }
+            else {
+                unimplemented!()
+            }
+        },
+        Term::Second(p) => {
+            if let Term::Sigma(scope) = infer_with_ctx(ctx, p)?.eval(ctx, false) {
+                let ((Binder(var), _), ty) = scope.unbind();
+
+                Ok(ty.subst(&var, &Term::First(p.clone())))
+            }
+            else {
+                unimplemented!()
+            }
+        },
+        Term::Enum(tys) => {
+            // TODO: Check labels are unique
+            for (_, ty) in tys {
+                check_with_ctx(ctx, &ty, &Term::Type)?;
+            }
+
+            Ok(Term::Type)
+        }
+        Term::Case(sm, Some(ann), cases) => {
+            let (Binder(ann_var), ann_ty) = ann.clone().unbind();
+            // TODO: Check exhaustivity
+            if let Term::Enum(tys) = infer_with_ctx(ctx, sm)?.eval(ctx, false) {
+                for (lbl, scope) in cases {
+                    if let Some(ty) = lookup(lbl, &tys) {
+                        let (Binder(var), body) = scope.clone().unbind();
+
+                        check_with_ctx(
+                            &ctx.with_type(&var, &ty),
+                            &body,
+                            &ann_ty.subst(
+                                &ann_var,
+                                &Term::Variant(lbl.to_string(), Term::Var(Var::Free(var)).into()),
+                            ),
+                        )?;
+                    } else {
+                        return Err(TypeError::CaseBadLabel(term.clone()));
+                    }
+                }
+                Ok(ann_ty.subst(&ann_var, sm))
+            } else {
+                Err(TypeError::CaseNonSum(term.clone()))
+            }
+        }
         Term::Unit => Ok(Term::UnitTy),
         Term::UnitTy => Ok(Term::Type),
         Term::EqElim(c, p, scope) => {
@@ -124,7 +176,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
             Ok(Term::Type)
         }
         Term::Unfold(tm) => {
-            if let Term::App(rec, ty) = infer_with_ctx(ctx, tm)?.nf(ctx) {
+            if let Term::App(rec, ty) = infer_with_ctx(ctx, tm)?.eval(ctx, false) {
                 if let Term::Rec(scope) = *rec.clone() {
                     let (Binder(a), scope) = scope.clone().unbind();
                     let (Binder(x), body) = scope.unbind();
@@ -144,8 +196,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
 
 fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError> {
     //println!("{} <= {}", term, ty);
-    let ty = &ty.nf(ctx);
-    match (term, ty) {
+    match (term, &ty.eval(ctx, true)) {
         (Term::Lam(lam_scope), Term::Pi(pi_scope)) => {
             let ((_, Embed(arg_ty)), ret_ty, Binder(var), body) =
                 pi_scope.clone().unbind2(lam_scope.clone());
@@ -170,44 +221,23 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
 
             Ok(())
         }
-        (Term::LetPair(let_scope), ann) => {
-            let (((Binder(x), Binder(y)), Embed(p)), rest) = let_scope.clone().unbind();
-            if let Term::Sigma(sigma_scope) = infer_with_ctx(ctx, &p)?.nf(ctx) {
-                let ((Binder(x_sigma), Embed(x_ty)), y_ty) = sigma_scope.clone().unbind();
-                let y_ty = y_ty.subst(&x_sigma, &Term::Var(Var::Free(x.clone())));
-                if let Term::Var(Var::Free(var)) = p.nf(ctx) {
-                    check_with_ctx(
-                        &ctx.with_type(&x, &x_ty)
-                            .with_type(&y, &y_ty)
-                            .with_term(&var, &Term::Pair(Term::Var(Var::Free(x.clone())).into(), Term::Var(Var::Free(y)).into())),
-                        &rest,
-                        ann,
-                    )?;
-                } else {
-                    check_with_ctx(&ctx.with_type(&x, &x_ty).with_type(&y, &y_ty), &rest, ann)?;
-                }
-                Ok(())
-            } else {
-                unimplemented!()
-            }
-        }
-        (Term::Variant(l), Term::Enum(ls)) => {
-            if ls.contains(l) {
+        (Term::Variant(lbl, tm), Term::Enum(lbls)) => {
+            if let Some(ty) = lookup(lbl, lbls) {
+                check_with_ctx(ctx, tm, &ty)?;
+
                 Ok(())
             } else {
                 Err(TypeError::VariantBadLabel(term.clone(), ty.clone()))
             }
         }
-        (Term::Case(s, cases), ann) => {
-            // FIXME: Exhaustiveness is not checked
-            if let Term::Enum(ls) = infer_with_ctx(ctx, s)?.nf(ctx) {
-                for (l, term) in cases {
-                    if ls.contains(l) {
-                        if let Term::Var(Var::Free(var)) = s.nf(ctx) {
-                            check_with_ctx(&ctx.with_term(&var, &Term::Variant(l.to_string())), &term, ann)?;
-                        } else {
-                            check_with_ctx(ctx, &term, ann)?;
-                        }
+        (Term::Case(sm, None, cases), ann) => {
+            // TODO: Check exhaustivity
+            if let Term::Enum(tys) = infer_with_ctx(ctx, sm)?.eval(ctx, false) {
+                for (lbl, scope) in cases {
+                    if let Some(ty) = lookup(lbl, &tys) {
+                        let (Binder(var), body) = scope.clone().unbind();
+
+                        check_with_ctx(&ctx.with_type(&var, &ty), &body, &ann)?;
                     } else {
                         return Err(TypeError::CaseBadLabel(term.clone()));
                     }
@@ -240,7 +270,7 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             Ok(())
         }
         (Term::Fold(tm), Term::App(rec, ty)) => {
-            if let Term::Rec(scope) = rec.nf(ctx) {
+            if let Term::Rec(scope) = rec.eval(ctx, false) {
                 let (Binder(a), scope) = scope.clone().unbind();
                 let (Binder(x), body) = scope.unbind();
 
@@ -256,9 +286,13 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             if inf_ty.beq(&ty, ctx) {
                 Ok(())
             } else {
-                            println!("ctx : {}", ctx);
+                println!("ctx : {}", ctx);
 
-                Err(TypeError::CouldNotCheck(term.clone(), ty.clone(), inf_ty.clone()))
+                Err(TypeError::CouldNotCheck(
+                    term.clone(),
+                    ty.clone(),
+                    inf_ty.clone(),
+                ))
             }
         }
     }

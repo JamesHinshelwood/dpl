@@ -1,4 +1,4 @@
-use dpl::parse_term;
+use pimu::parse_term;
 use std::fs;
 use std::io;
 use std::io::Read;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "dpl")]
+#[structopt(name = "Πμ")]
 struct Opt {
     /// Source file
     #[structopt(name = "FILE")]
@@ -28,14 +28,14 @@ fn main() -> io::Result<()> {
         Ok(term) => {
             let ty = term.infer_type();
 
-            println!("{}", term);
             match ty {
                 Ok(ty) => {
+                    println!("{}", term);
                     println!("has type");
                     println!("{}", ty);
                 }
                 Err(err) => {
-                    println!("type error");
+                    println!("Type error");
                     println!("{}", err);
                 }
             }
