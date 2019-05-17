@@ -28,9 +28,10 @@ pub enum Term {
     Enum(Vec<(String, Term)>),
     Unit,
     UnitTy,
+    UnitElim(Scope<Binder<NameRepr>, Box<Term>>, Box<Term>, Box<Term>),
     Refl,
     EqElim(Box<Term>, Box<Term>, Scope<Binder<NameRepr>, Box<Term>>),
-    EqTy(Box<Term>, Box<Term>),
+    EqTy(Box<Term>, Box<Term>, Box<Term>),
     Fold(Box<Term>),
     Unfold(Box<Term>),
     Rec(Scope<Binder<NameRepr>, Scope<Binder<NameRepr>, Box<Term>>>),
@@ -122,6 +123,14 @@ impl Term {
             ),
             Term::Unit => Term::Unit,
             Term::UnitTy => Term::UnitTy,
+            Term::UnitElim(scope, unit, body) => Term::UnitElim(
+                Scope {
+                    unsafe_pattern: scope.unsafe_pattern.clone(),
+                    unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
+                },
+                unit.subst(name, replacement).into(),
+                body.subst(name, replacement).into(),
+            ),
             Term::Refl => Term::Refl,
             Term::EqElim(c, p, scope) => Term::EqElim(
                 c.subst(name, replacement).into(),
@@ -131,9 +140,10 @@ impl Term {
                     unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
                 },
             ),
-            Term::EqTy(x, y) => Term::EqTy(
+            Term::EqTy(x, y, ty) => Term::EqTy(
                 x.subst(name, replacement).into(),
                 y.subst(name, replacement).into(),
+                ty.subst(name, replacement).into(),
             ),
             Term::Fold(tm) => Term::Fold(tm.subst(name, replacement).into()),
             Term::Unfold(tm) => Term::Unfold(tm.subst(name, replacement).into()),

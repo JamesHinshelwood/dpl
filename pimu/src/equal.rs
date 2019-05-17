@@ -20,7 +20,7 @@ impl Term {
             Term::Unit => true,
             Term::UnitTy => true,
             Term::EqElim(_, _, _) => true,
-            Term::EqTy(_, _) => true,
+            Term::EqTy(_, _, _) => true,
             Term::Unfold(_) => true,
             _ => false,
         }
@@ -32,9 +32,7 @@ impl Term {
             Term::Annot(tm, ty) => Term::Annot(tm.eval(ctx, rm_annot).into(), ty.eval(ctx, rm_annot).into()),
             Term::Type => Term::Type,
             Term::Var(Var::Free(var)) => {
-                println!("looking for {}", var);
                 if let Some(tm) = ctx.get_term(var) {
-                    println!("found it {}", tm);
                     tm.eval(ctx, rm_annot)
                 } else {
                     Term::Var(Var::Free(var.clone()))
@@ -132,7 +130,7 @@ impl Term {
                 let (var, body) = scope.clone().unbind();
                 Term::EqElim(c.eval(ctx, rm_annot).into(), p.eval(ctx, rm_annot).into(), Scope::new(var.clone(), body.eval(ctx, rm_annot).into()))
             }
-            Term::EqTy(l, r) => Term::EqTy(l.eval(ctx, rm_annot).into(), r.eval(ctx, rm_annot).into()),
+            Term::EqTy(l, r, ty) => Term::EqTy(l.eval(ctx, rm_annot).into(), r.eval(ctx, rm_annot).into(), ty.eval(ctx, rm_annot).into()),
             Term::Fold(tm) => Term::Fold(tm.eval(ctx, rm_annot).into()),
             Term::Unfold(tm) => if let Term::Annot(tm, ty) = tm.eval(ctx, rm_annot) {
                 if let Term::Fold(tm) = *tm {
@@ -149,15 +147,20 @@ impl Term {
                 let (x, body) = scope.unbind();
                 Term::Rec(Scope::new(a.clone(), Scope::new(x.clone(), body.eval(ctx, rm_annot).into())))
             }
+            Term::UnitElim(_, _, _) => unimplemented!(),
         }
     }
 
     pub fn beq(&self, other: &Self, ctx: &Context) -> bool {
-        Term::term_eq(&self.eval(ctx, false), &other.eval(ctx, false))
+        Term::term_eq(&self.nf(ctx), &other.nf(ctx))
+    }
+
+    pub fn normalize(&self) -> Self {
+        self.nf(&Context::new())
     }
 
     pub fn nf(&self, ctx: &Context) -> Self {
-        println!("normalizting {}", self);
+        //println!("nf of {}", self);
         match self {
             Term::Annot(tm, _) => tm.nf(ctx),
             Term::Type => Term::Type,
@@ -178,8 +181,22 @@ impl Term {
                 let rhs = rhs.nf(ctx);
                 if let Term::Lam(scope) = lhs {
                     let (Binder(var), body) = scope.unbind();
-                    body.subst(&var, &rhs).nf(ctx) // TODO: Consider using ctx.with_term instead
-                } else {
+                    body.subst(&var, &rhs).nf(ctx)
+                }
+                else if let Term::App(fix, ind) = lhs.clone() {
+                    if let Term::Fix(f) = *fix {
+                        if let Term::Fold(rec) = rhs {
+                            Term::App(Term::App(Term::App(f.clone(), Term::Fix(f).into()).into(), ind).into(), Term::Fold(rec).into()).nf(ctx)
+                        }
+                        else {
+                            Term::App(lhs.into(), rhs.into())
+                        }
+                    }
+                    else {
+                        Term::App(lhs.into(), rhs.into())
+                    }
+                }
+                else {
                     Term::App(lhs.into(), rhs.into())
                 }
             }
@@ -188,27 +205,36 @@ impl Term {
                 Term::Pi(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
             }
             Term::Fix(tm) => {
-                let tm = tm.nf(ctx);
-                if let Term::Lam(scope) = tm.clone() {
-                    let (Binder(var), body) = scope.unbind();
-                    body.subst(&var, &Term::Fix(tm.into())).nf(ctx)
-                }
-                else {
-                    Term::Fix(tm.nf(ctx).into())
-                }
+                Term::Fix(tm.nf(ctx).into())
             }
             Term::Let(scope) => {
                 let ((var, Embed(l)), r) = scope.clone().unbind();
-                //r.subst(&var, &l) // TODO: Explicit subst
-                Term::Let(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
+                r.subst(&var, &l).nf(ctx) // TODO: Explicit subst
+                //Term::Let(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
             }
             Term::Decl(scope) => {
                 let ((var, Embed(l)), r) = scope.clone().unbind();
                 Term::Decl(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
             }
             Term::Pair(l, r) => Term::Pair(l.nf(ctx).into(), r.nf(ctx).into()),
-            Term::First(_) => unimplemented!(),
-            Term::Second(_) => unimplemented!(),
+            Term::First(p) => {
+                let p = p.nf(ctx);
+                if let Term::Pair(l, _) = p {
+                    l.nf(ctx)
+                }
+                else {
+                    Term::First(p.into())
+                }
+            },
+            Term::Second(p) => {
+                let p = p.nf(ctx);
+                if let Term::Pair(_, r) = p {
+                    r.nf(ctx)
+                }
+                else {
+                    Term::Second(p.into())
+                }
+            },
             Term::Sigma(scope) => {
                 let ((var, Embed(l)), r) = scope.clone().unbind();
                 Term::Sigma(Scope::new((var, Embed(l.nf(ctx).into())), r.nf(ctx).into()))
@@ -242,6 +268,18 @@ impl Term {
             ),
             Term::Unit => Term::Unit,
             Term::UnitTy => Term::UnitTy,
+            Term::UnitElim(scope, unit, body) => {
+                let (var, ty) = scope.clone().unbind();
+                let ty = ty.nf(ctx);
+                let unit = unit.nf(ctx);
+                let body = body.nf(ctx);
+                if let Term::Unit = unit {
+                    body
+                }
+                else {
+                    Term::UnitElim(Scope::new(var, ty.into()), unit.into(), body.into())
+                }
+            }
             Term::Refl => Term::Refl,
             Term::EqElim(c, p, scope) => {
                 let c = c.nf(ctx);
@@ -254,8 +292,15 @@ impl Term {
                     Term::EqElim(c.into(), p.into(), Scope::new(x, t.into()))
                 }
             }
-            Term::EqTy(x, y) => Term::EqTy(x.nf(ctx).into(), y.nf(ctx).into()),
-            Term::Fold(tm) => Term::Fold(tm.nf(ctx).into()),
+            Term::EqTy(x, y, ty) => Term::EqTy(x.nf(ctx).into(), y.nf(ctx).into(), ty.nf(ctx).into()),
+            Term::Fold(tm) => {
+                let tm = tm.nf(ctx);
+                if let Term::Unfold(inner) = tm {
+                    inner.nf(ctx)
+                } else {
+                    Term::Fold(tm.into())
+                }
+            },
             Term::Unfold(tm) => {
                 let tm = tm.nf(ctx);
                 if let Term::Fold(inner) = tm {

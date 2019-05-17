@@ -29,6 +29,7 @@ pub enum ConcreteTerm {
     Enum(Vec<(String, ConcreteTerm)>),
     Unit,
     UnitTy,
+    UnitElim(String, Box<ConcreteTerm>, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Refl,
     EqElim(
         Box<ConcreteTerm>,
@@ -36,7 +37,7 @@ pub enum ConcreteTerm {
         String,
         Box<ConcreteTerm>,
     ),
-    EqTy(Box<ConcreteTerm>, Box<ConcreteTerm>),
+    EqTy(Box<ConcreteTerm>, Box<ConcreteTerm>, Box<ConcreteTerm>),
     Fold(Box<ConcreteTerm>),
     Unfold(Box<ConcreteTerm>),
     Rec(String, String, Box<ConcreteTerm>),
@@ -169,6 +170,10 @@ impl ConcreteTerm {
             ),
             ConcreteTerm::Unit => Term::Unit,
             ConcreteTerm::UnitTy => Term::UnitTy,
+            ConcreteTerm::UnitElim(name, ty, unit, body) => {
+                let (var, new_vars) = vars.add_var(name);
+                Term::UnitElim(Scope::new(Binder(var), ty._to_raw(new_vars).into()), unit._to_raw(vars.clone()).into(), body._to_raw(vars.clone()).into())
+            }
             ConcreteTerm::Refl => Term::Refl,
             ConcreteTerm::EqElim(c, p, name, t) => {
                 let (var, new_vars) = vars.add_var(name);
@@ -178,9 +183,10 @@ impl ConcreteTerm {
                     Scope::new(Binder(var), t._to_raw(new_vars).into()),
                 )
             }
-            ConcreteTerm::EqTy(x, y) => Term::EqTy(
+            ConcreteTerm::EqTy(x, y, ty) => Term::EqTy(
                 x._to_raw(vars.clone()).into(),
                 y._to_raw(vars.clone()).into(),
+                ty._to_raw(vars.clone()).into(),
             ),
             ConcreteTerm::Fold(tm) => Term::Fold(tm._to_raw(vars).into()),
             ConcreteTerm::Unfold(tm) => Term::Unfold(tm._to_raw(vars).into()),

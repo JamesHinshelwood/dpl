@@ -80,6 +80,10 @@ impl fmt::Display for Term {
             ),
             Term::Unit => write!(f, "unit"),
             Term::UnitTy => write!(f, "Unit"),
+            Term::UnitElim(scope, unit, body) => {
+                let (Binder(var), ty) = scope.clone().unbind();
+                write!(f, "ucase [{}.{}] {} of unit -> {}", print_free_var(&var), ty, unit, body)
+            }
             Term::Refl => write!(f, "refl"),
             Term::EqElim(c, p, scope) => {
                 let (Binder(var), t) = scope.clone().unbind();
@@ -92,7 +96,7 @@ impl fmt::Display for Term {
                     t
                 )
             }
-            Term::EqTy(x, y) => write!(f, "({} = {})", x, y),
+            Term::EqTy(x, y, ty) => write!(f, "({} = {} : {})", x, y, ty),
             Term::Fold(tm) => write!(f, "fold({})", tm),
             Term::Unfold(tm) => write!(f, "unfold({})", tm),
             Term::Rec(scope) => {

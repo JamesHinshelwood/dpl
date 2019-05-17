@@ -31,10 +31,14 @@ fn main() -> io::Result<()> {
             match ty {
                 Ok(ty) => {
                     println!("{}", term);
-                    println!("has type");
+                    println!("");
+                    println!("evaluates to");
+                    println!("{}", term.normalize());
+                    println!("with type");
                     println!("{}", ty);
                 }
                 Err(err) => {
+                    println!("{}", term);
                     println!("Type error");
                     println!("{}", err);
                 }

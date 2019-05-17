@@ -1,5 +1,7 @@
 let Bool = <T : Unit + F : Unit> in
 let true = (<T = unit>) : Bool in
 let false = (<F = unit>) : Bool in
-let not = (\b.case b of <T = _> -> false | <F = _> -> true) : Bool -> Bool in
-not
+let ifthenelse = (\A.\b.\t.\f.case b of <T = _> -> t | <F = _> -> f) : (A : Type) -> Bool -> A -> A -> A in
+let not = (\b.ifthenelse Bool b false true) : Bool -> Bool in
+
+not true

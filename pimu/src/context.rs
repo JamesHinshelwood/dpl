@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ast::Term;
-use moniker::FreeVar;
+use moniker::{FreeVar, Var};
 
 #[derive(Clone, Debug, Default)]
 pub struct Context {
@@ -54,5 +54,14 @@ impl Context {
 
     pub fn get_term(&self, name: &FreeVar<String>) -> Option<Term> {
         self.term_binding.get(name).map(Term::clone)
+    }
+
+    pub fn subst<N: std::fmt::Display + PartialEq<Var<String>>>(&self, name: &N, replacement: &Term) -> Self {
+        println!("substing {} for {}", name, replacement);
+        println!("cur ctx: {}", self);
+        Context {
+            type_binding: self.type_binding.iter().map(|(k, v)| (k.clone(), v.subst(name, replacement))).collect(),
+            term_binding: self.term_binding.iter().map(|(k, v)| (k.clone(), v.subst(name, replacement))).collect(),
+        }
     }
 }

@@ -1,15 +1,80 @@
-let Nat = (~n.\u.(l : {zero | succ}) * (case l of zero -> Unit | succ -> n u)) : Unit -> Type in
-let 0 = (fold('zero, unit)) : Nat unit in
-let succ = (\n.fold('succ, n)) : Nat unit -> Nat unit in
-let 1 = succ 0 in let 2 = succ 1 in
-let plus = (fix (\f.\m.\n. let (l, r) = unfold m in case l of zero -> n | succ -> succ (f r n))) : Nat unit -> Nat unit -> Nat unit in
+let subst = (\A.\x.\y.\P.\eq.case[\m.\n.\q.(P m -> P n)] eq of refl(x) -> (\m.m)) : (A : Type) -> (x : A) -> (y : A) -> (P : A -> Type) -> (x = y : A) -> P x -> P y in
+let eq_symm  = (\A.\x.\y.\p.case[\m.\n.\q.(n = m : A)] p of refl(z) -> refl) : (A : Type) -> (x : A) -> (y : A) -> (x = y : A) -> (y = x : A) in
 
-let Vec = (\A.~v.\n.(l : {nil | cons}) * (case l of nil -> (n = 0) | cons -> ((m : Nat unit) * A * v m * (n = succ m)))) : Type -> (Nat unit) -> Type in
-let nil = (\A.fold('nil, refl)) : (A : Type) -> Vec A 0 in
-let cons = (\A.\a.\n.\v.fold('cons, (n, a, v, refl))) : (A : Type) -> A -> (n : Nat unit) -> Vec A n -> Vec A (succ n) in
-let head = (\A.\n.\v.(let (l, r) = unfold v in case l of cons -> (let (m, ave) = r in (let (a, ve) = ave in a)))) : (A : Type) -> (n : Nat unit) -> Vec A (succ n) -> A in
+let unit_eq = (\u.ucase [u.(u = unit : Unit)] u of unit -> refl) : (u : Unit) -> (u = unit : Unit) in
 
-let taib = (\A.\k.\n.\v.\p.let (l, r) = unfold v in case l of cons -> (let (m, awe) = r in (let (a, we) = awe in (let (w, e) = we in w)))) : (A : Type) -> (k : Nat unit) -> (n : Nat unit) -> Vec A k -> (k = succ n) -> Vec A n in
-let tail = (\A.\n.\v.taib A (succ n) n v refl) : (A : Type) -> (n : Nat unit) -> Vec A (succ n) -> Vec A n in
+let Void = <> in
+let void_elim = (\A.\v.case v of) : (A : Type) -> Void -> A in
+let not = (\A.A -> Void) : Type -> Type in
 
-unit
+let Nat' = (~n.\u.<zero : Unit + succ : n u>) : Unit -> Type in
+let Nat = Nat' unit in
+let 0 = (fold(<zero = unit>)) : Nat in
+let succ = (\n.fold(<succ = n>)) : Nat -> Nat in
+let 1 = succ 0 in let 2 = succ 1 in let 3 = succ 2 in let 4 = succ 3 in
+let plus' = (fix (\plus.\u.\m.\u.\n. case unfold m of <zero = _> -> n | <succ = m'> -> succ (plus unit m' unit n))) : Unit -> Nat -> Unit -> Nat -> Nat in
+let plus = (\m.\n.plus' unit m unit n) : Nat -> Nat -> Nat in
+
+let c_nat = (\x.\y.\q.case unfold x of <zero = _> -> (case unfold y of <zero = _> -> Unit
+                                                                    | <succ = y'> -> Void)
+                                    | <succ = x'> -> (case unfold y of <zero = _> -> Void
+                                                                    | <succ = y'> -> (x' = y' : Nat)))
+          : (x : Nat) -> (y : Nat) -> (x = y : Nat) -> Type in
+let k_nat = (\z.case [z.c_nat (fold z) (fold z) refl] unfold z of <zero = _> -> unit | <succ = z'> -> ((refl) : (z' = z' : Nat))) : (z : Nat) -> c_nat z z refl in
+let succ_inj = (\m.\n.\p.case [c_nat] p of refl(z) -> k_nat z) : (m : Nat) -> (n : Nat) -> (succ m = succ n : Nat) -> (m = n : Nat) in
+let succ_neq_0 = (\n.\p.subst Nat (succ n) 0 (\x. case unfold x of <zero = _> -> Void | <succ = _> -> Unit) p unit) : (n : Nat) -> not (succ n = 0 : Nat) in
+let plus_0_n = (\n.refl) : (n : Nat) -> (n = plus 0 n : Nat) in
+
+let Vec = (\A.~v.\n.<nil : (n = 0 : Nat) + cons : ((m : Nat) * A * v m * (n = succ m : Nat))>) : Type -> Nat -> Type in
+let nil = (\A.fold(<nil = refl>)) : (A : Type) -> Vec A 0 in
+let cons = (\A.\a.\n.\v.fold(<cons = (n, a, v, refl)>)) : (A : Type) -> A -> (n : Nat) -> Vec A n -> Vec A (succ n) in
+let head = (\A.\n.\v.case unfold v of <nil = p> -> (void_elim A (succ_neq_0 n p))
+                                  | <cons = v'> -> ((v'.2).1)
+       ) : (A : Type) -> (n : Nat) -> Vec A (succ n) -> A in
+let tail = (\A.\n.\v.case unfold v of <nil = p> -> (void_elim (Vec A n) (succ_neq_0 n p))
+                                  | <cons = v'> -> (
+                                      let p = succ_inj n (v'.1) (((v'.2).2).2) in
+                                      let p = eq_symm Nat n (v'.1) p in
+                                      (subst Nat (v'.1) n (\z.Vec A z) p (((v'.2).2).1))
+                                  )
+       ) : (A : Type) -> (n : Nat) -> Vec A (succ n) -> Vec A n in
+
+let append = (\A.fix(\append.\m.case [m.Vec A (fold m) -> (n : Nat) -> Vec A n -> Vec A (plus (fold m) n)] unfold m of
+                <zero = _> -> (\xs.\n.\ys.ys)
+             | <succ = m'> -> (\xs.\n.\ys.case unfold xs of
+                    <nil = m0> -> (void_elim (Vec A (plus (succ m') n)) (succ_neq_0 m' m0))
+                | <cons = xs'> -> (let tl_app = (append (xs'.1) (((xs'.2).2).1) n ys) : Vec A (plus (xs'.1) n) in
+                                  let q = (succ_inj m' (xs'.1) (((xs'.2).2).2)) : (m' = (xs'.1) : Nat) in
+                                  let q' = (eq_symm Nat m' (xs'.1) q) : ((xs'.1) = m' : Nat) in
+                                  let tl_app' = (subst Nat (xs'.1) m' (\z.Vec A (plus z n)) q' tl_app) : Vec A (plus m' n) in
+                                  cons A ((xs'.2).1) (plus m' n) tl_app')
+                )
+        )) : (A : Type) -> (m : Nat) -> Vec A m -> (n : Nat) -> Vec A n -> Vec A (plus m n) in
+
+let zip = (\A.\B.fix(\zip.\n.case [n.Vec A (fold n) -> Vec B (fold n) -> Vec (A * B) (fold n)] unfold n of
+            <zero = u> -> (\xs.\ys.subst Unit unit u (\z.Vec (A * B) fold(<zero = z>)) (eq_symm Unit u unit (unit_eq u)) (nil (A * B)))
+        | <succ = n'> -> (\xs.\ys.case unfold xs of 
+                <nil = n0> -> (void_elim (Vec (A * B) (succ n')) (succ_neq_0 n' n0))
+            | <cons = xs'> -> (case unfold ys of 
+                    <nil = n0> -> (void_elim (Vec (A * B) (succ n')) (succ_neq_0 n' n0))
+                | <cons = ys'> -> (
+                        let xs_p = (succ_inj n' (xs'.1) (((xs'.2).2).2)) : (n' = (xs'.1) : Nat) in
+                        let xs_p = (eq_symm Nat n' (xs'.1) xs_p) : ((xs'.1) = n' : Nat) in
+                        let xs'' = (subst Nat (xs'.1) n' (\z.Vec A z) xs_p (((xs'.2).2).1)) : Vec A n' in
+                        let ys_p = (succ_inj n' (ys'.1) (((ys'.2).2).2)) : (n' = (ys'.1) : Nat) in
+                        let ys_p = (eq_symm Nat n' (ys'.1) ys_p) : ((ys'.1) = n' : Nat) in
+                        let ys'' = (subst Nat (ys'.1) n' (\z.Vec B z) ys_p (((ys'.2).2).1)) : Vec B n' in
+                        let tl_zip = (zip n' xs'' ys'') : Vec (A * B) n' in
+                        let elem = ((((xs'.2).1), ((ys'.2).1))) : (A * B) in
+                        cons (A * B) elem n' tl_zip
+                    ))
+
+        )
+     )) : (A : Type) -> (B : Type) -> (n : Nat) -> Vec A n -> Vec B n -> Vec (A * B) n in
+
+let Bool = <T : Unit + F : Unit> in
+let true = (<T = unit>) : Bool in
+let false = (<F = unit>) : Bool in
+
+let xs = cons Bool true 1 (cons Bool false 0 (nil Bool)) in
+head Bool 0 (nil Bool)

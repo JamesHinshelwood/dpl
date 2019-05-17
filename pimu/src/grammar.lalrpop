@@ -17,7 +17,8 @@ pub Term: Term = {
     "(" <v:Var> ":" <l:Term> ")" "*" <r:Term> => Term::Sigma(v, l.into(), r.into()),
     "case" <a:CaseAnnot> <s:Term> "of" <cs:List<Case, "|">> => Term::Case(s.into(), a, cs),
     "case" "[" <c:Term> "]" <p:Term> "of" "refl" "(" <v:Var> ")" "->" <t:Term> => Term::EqElim(c.into(), p.into(), v, t.into()),
-    <x:App> "=" <y:App> => Term::EqTy(x.into(), y.into()),
+    "ucase" "[" <v:Var> "." <ty:Term> "]" <u:Term> "of" "unit" "->" <t:Term> => Term::UnitElim(v, ty.into(), u.into(), t.into()),
+    <x:App> "=" <y:App> ":" <ty:App> => Term::EqTy(x.into(), y.into(), ty.into()),
     "~" <a:Var> "." "\\" <x:Var> "." <tm:Term> => Term::Rec(a, x, tm.into()),
 };
 
