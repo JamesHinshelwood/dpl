@@ -4,4 +4,4 @@ let false = (<F = unit>) : Bool in
 let ifthenelse = (\A.\b.\t.\f.case b of <T = _> -> t | <F = _> -> f) : (A : Type) -> Bool -> A -> A -> A in
 let not = (\b.ifthenelse Bool b false true) : Bool -> Bool in
 
-not true
+unit

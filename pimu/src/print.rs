@@ -82,7 +82,14 @@ impl fmt::Display for Term {
             Term::UnitTy => write!(f, "Unit"),
             Term::UnitElim(scope, unit, body) => {
                 let (Binder(var), ty) = scope.clone().unbind();
-                write!(f, "ucase [{}.{}] {} of unit -> {}", print_free_var(&var), ty, unit, body)
+                write!(
+                    f,
+                    "ucase [{}.{}] {} of unit -> {}",
+                    print_free_var(&var),
+                    ty,
+                    unit,
+                    body
+                )
             }
             Term::Refl => write!(f, "refl"),
             Term::EqElim(c, p, scope) => {
@@ -115,7 +122,6 @@ impl fmt::Display for Term {
 }
 
 fn print_bound_var(var: &BoundVar<String>) -> String {
-    //return var.to_string();
     if let Some(name) = &var.pretty_name {
         name.to_string()
     } else {
@@ -124,10 +130,35 @@ fn print_bound_var(var: &BoundVar<String>) -> String {
 }
 
 pub fn print_free_var(var: &FreeVar<String>) -> String {
-    //return var.to_string();
     if let Some(name) = &var.pretty_name {
         name.to_string()
     } else {
         "_".to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ast::Term;
+    use crate::parser::parse_term;
+    use moniker::{FreeVar, Var};
+
+    #[test]
+    fn print_refl() {
+        let print = format!("{}", Term::Refl);
+        assert_eq!(print, "refl");
+    }
+
+    #[test]
+    fn print_var() {
+        let print = format!("{}", Term::Var(Var::Free(FreeVar::fresh_named("foo"))));
+        assert_eq!(print, "foo");
+    }
+
+    #[test]
+    fn print_lams() {
+        let string = "(\\x. (\\y. x))";
+        let print = format!("{}", parse_term(string).unwrap());
+        assert_eq!(print, string);
     }
 }

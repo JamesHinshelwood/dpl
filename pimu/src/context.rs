@@ -56,12 +56,22 @@ impl Context {
         self.term_binding.get(name).map(Term::clone)
     }
 
-    pub fn subst<N: std::fmt::Display + PartialEq<Var<String>>>(&self, name: &N, replacement: &Term) -> Self {
-        println!("substing {} for {}", name, replacement);
-        println!("cur ctx: {}", self);
+    pub fn subst<N: std::fmt::Display + PartialEq<Var<String>>>(
+        &self,
+        name: &N,
+        replacement: &Term,
+    ) -> Self {
         Context {
-            type_binding: self.type_binding.iter().map(|(k, v)| (k.clone(), v.subst(name, replacement))).collect(),
-            term_binding: self.term_binding.iter().map(|(k, v)| (k.clone(), v.subst(name, replacement))).collect(),
+            type_binding: self
+                .type_binding
+                .iter()
+                .map(|(k, v)| (k.clone(), v.subst(name, replacement)))
+                .collect(),
+            term_binding: self
+                .term_binding
+                .iter()
+                .map(|(k, v)| (k.clone(), v.subst(name, replacement)))
+                .collect(),
         }
     }
 }

@@ -72,9 +72,4 @@ let zip = (\A.\B.fix(\zip.\n.case [n.Vec A (fold n) -> Vec B (fold n) -> Vec (A 
         )
      )) : (A : Type) -> (B : Type) -> (n : Nat) -> Vec A n -> Vec B n -> Vec (A * B) n in
 
-let Bool = <T : Unit + F : Unit> in
-let true = (<T = unit>) : Bool in
-let false = (<F = unit>) : Bool in
-
-let xs = cons Bool true 1 (cons Bool false 0 (nil Bool)) in
-head Bool 0 (nil Bool)
+unit

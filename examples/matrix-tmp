@@ -1,5 +1,0 @@
-let index = (\A.\n.\f.\v.let (l, r) = unfold v in case l of zero -> 
-                                                          | succ -> 
-        ) : (A : Type) -> (n : Nat unit) -> Fin n -> Vect A n -> A in
-
-let getCol = (\A.\m.\n.\f.\t.) : (A : Type) -> (m : Nat unit) -> (n : Nat unit) -> Fin m -> Matrix A (m, n) -> Vec A m

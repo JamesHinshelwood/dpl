@@ -110,7 +110,7 @@ impl Term {
                             lbl.to_string(),
                             Scope {
                                 unsafe_pattern: scope.unsafe_pattern.clone(),
-                                unsafe_body: scope.unsafe_body.subst(name, replacement).into(),
+                                unsafe_body: scope.unsafe_body.subst(name, replacement),
                             },
                         )
                     })
@@ -118,7 +118,7 @@ impl Term {
             ),
             Term::Enum(tys) => Term::Enum(
                 tys.iter()
-                    .map(|(lbl, ty)| (lbl.to_string(), ty.subst(name, replacement).into()))
+                    .map(|(lbl, ty)| (lbl.to_string(), ty.subst(name, replacement)))
                     .collect(),
             ),
             Term::Unit => Term::Unit,

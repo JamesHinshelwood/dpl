@@ -32,7 +32,7 @@ pub fn parse_term(term: &str) -> Result<Term, ParseError<Location, grammar::Toke
         .to_raw())
 }
 
-/// Converts a byte offset in a string, to a Location
+/// Converts a byte offset in a `&str` to a `Location`
 fn char_to_linechar(offset: usize, s: &str) -> Location {
     let mut cur_offset = 0;
 
@@ -52,6 +52,8 @@ fn char_to_linechar(offset: usize, s: &str) -> Location {
 #[cfg(test)]
 mod tests {
     use super::parse_term;
+    use crate::ast::Term;
+    use lalrpop_util::ParseError;
     use moniker::assert_term_eq;
 
     #[test]
@@ -68,5 +70,74 @@ mod tests {
         let term2 = parse_term("\\W.\\X.\\Y.\\Z.(W * (X * (Y * Z)))").unwrap();
 
         assert_term_eq!(term1, term2);
+    }
+
+    #[test]
+    fn annotated_term() {
+        let term = parse_term("(unit) : Unit").unwrap();
+        let expected = Term::Annot(Term::Unit.into(), Term::UnitTy.into());
+
+        assert_term_eq!(term, expected);
+    }
+
+    #[test]
+    fn repeated_application() {
+        let term = parse_term("unit unit unit unit").unwrap();
+        let expected = Term::App(
+            Term::App(
+                Term::App(Term::Unit.into(), Term::Unit.into()).into(),
+                Term::Unit.into(),
+            )
+            .into(),
+            Term::Unit.into(),
+        );
+
+        assert_term_eq!(term, expected);
+    }
+
+    #[test]
+    fn empty_sum() {
+        let term = parse_term("<>").unwrap();
+        let expected = Term::Enum(Vec::new());
+
+        assert_term_eq!(term, expected);
+    }
+
+    #[test]
+    fn numeric_identifier() {
+        let term1 = parse_term("\\1. 1").unwrap();
+        let term2 = parse_term("\\x. x").unwrap();
+
+        assert_term_eq!(term1, term2);
+    }
+
+    #[test]
+    fn prime_underscore_identifer() {
+        let term1 = parse_term("\\__''__. __''__").unwrap();
+        let term2 = parse_term("\\x. x").unwrap();
+
+        assert_term_eq!(term1, term2);
+    }
+
+    #[test]
+    fn error_line_number() {
+        let err = parse_term("Unit\n~").unwrap_err();
+        if let ParseError::UnrecognizedToken {
+            token: (l, _, _), ..
+        } = err
+        {
+            assert_eq!(l.line, 2);
+        } else {
+            panic!("expected UnrecognizedToken");
+        }
+    }
+
+    #[test]
+    fn bad_token() {
+        let err = parse_term("&").unwrap_err();
+        if let ParseError::InvalidToken { .. } = err {
+        } else {
+            panic!("expected InvalidToken")
+        }
     }
 }

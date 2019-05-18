@@ -13,6 +13,8 @@ let 1 = succ 0 in let 2 = succ 1 in
 let plus' = (fix (\plus.\u.\m.\u.\n. case unfold m of <zero = _> -> n | <succ = m'> -> succ (plus unit m' unit n))) : Unit -> Nat -> Unit -> Nat -> Nat in
 let plus = (\m.\n.plus' unit m unit n) : Nat -> Nat -> Nat in
 
+let foo = (refl) : (plus 1 1 = 2 : Nat) in
+
 let c_nat = (\x.\y.\q.case unfold x of <zero = _> -> (case unfold y of <zero = _> -> Unit
                                                                     | <succ = y'> -> Void)
                                     | <succ = x'> -> (case unfold y of <zero = _> -> Void
@@ -53,4 +55,7 @@ let plus_commut' = (fix (\plus_commut.\u.\n.\u.\m.case [n.(plus (fold n) m = plu
               )) : Unit -> (n : Nat) -> Unit -> (m : Nat) -> (plus n m = plus m n : Nat) in
 let plus_commut = (\n.\m.plus_commut' unit n unit m) : (n : Nat) -> (m : Nat) -> (plus n m = plus m n : Nat) in
 
-unit
+let foo = (fix(\f.\u.\n.f u n)) : Unit -> Nat -> Void in
+let bar = foo unit 0 in
+
+plus 1 1

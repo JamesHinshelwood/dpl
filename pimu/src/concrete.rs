@@ -29,7 +29,12 @@ pub enum ConcreteTerm {
     Enum(Vec<(String, ConcreteTerm)>),
     Unit,
     UnitTy,
-    UnitElim(String, Box<ConcreteTerm>, Box<ConcreteTerm>, Box<ConcreteTerm>),
+    UnitElim(
+        String,
+        Box<ConcreteTerm>,
+        Box<ConcreteTerm>,
+        Box<ConcreteTerm>,
+    ),
     Refl,
     EqElim(
         Box<ConcreteTerm>,
@@ -172,7 +177,11 @@ impl ConcreteTerm {
             ConcreteTerm::UnitTy => Term::UnitTy,
             ConcreteTerm::UnitElim(name, ty, unit, body) => {
                 let (var, new_vars) = vars.add_var(name);
-                Term::UnitElim(Scope::new(Binder(var), ty._to_raw(new_vars).into()), unit._to_raw(vars.clone()).into(), body._to_raw(vars.clone()).into())
+                Term::UnitElim(
+                    Scope::new(Binder(var), ty._to_raw(new_vars).into()),
+                    unit._to_raw(vars.clone()).into(),
+                    body._to_raw(vars.clone()).into(),
+                )
             }
             ConcreteTerm::Refl => Term::Refl,
             ConcreteTerm::EqElim(c, p, name, t) => {

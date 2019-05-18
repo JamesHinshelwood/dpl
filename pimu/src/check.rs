@@ -2,6 +2,7 @@ use crate::ast::{lookup, Term};
 use crate::context::Context;
 use crate::error::TypeError;
 use moniker::{Binder, Embed, FreeVar, Scope, Var};
+use std::collections::HashSet;
 use std::io::Write;
 
 impl Term {
@@ -12,7 +13,6 @@ impl Term {
 
 #[allow(clippy::many_single_char_names)]
 fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
-    println!("{} => ?", term);
     std::io::stdout().flush().unwrap();
     match term {
         Term::Annot(tm, annot) => {
@@ -26,7 +26,7 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
             .ok_or_else(|| TypeError::VarUnbound(free_var.clone())),
         Term::App(lhs, rhs) => {
             if let Term::Pi(scope) = infer_with_ctx(ctx, lhs)?.nf(ctx) {
-                let ((var, Embed(arg_ty)), ret_ty) = scope.unbind(); // TODO: Binder<_> ?
+                let ((var, Embed(arg_ty)), ret_ty) = scope.unbind();
                 check_with_ctx(ctx, rhs, &arg_ty)?;
 
                 Ok(ret_ty.subst(&var, rhs))
@@ -44,8 +44,10 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
         Term::Let(scope) => {
             let ((Binder(var), Embed(tm)), body) = scope.clone().unbind();
             let ty = infer_with_ctx(ctx, &tm)?;
-            infer_with_ctx(&ctx.with_type(&var, &ty.nf(ctx)).with_term(&var, &tm), &body)
-            //infer_with_ctx(&ctx.with_type(&var, &ty), &body.subst(&var, &tm))
+            infer_with_ctx(
+                &ctx.with_type(&var, &ty.nf(ctx)).with_term(&var, &tm),
+                &body,
+            )
         }
         Term::Decl(scope) => {
             let ((Binder(var), Embed(ty)), body) = scope.clone().unbind();
@@ -64,24 +66,30 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
                 let ((_, Embed(ty)), _) = scope.unbind();
 
                 Ok(*ty)
+            } else {
+                Err(TypeError::FirstNonPair(*p.clone()))
             }
-            else {
-                unimplemented!()
-            }
-        },
+        }
         Term::Second(p) => {
             if let Term::Sigma(scope) = infer_with_ctx(ctx, p)?.nf(ctx) {
                 let ((Binder(var), _), ty) = scope.unbind();
 
                 Ok(ty.subst(&var, &Term::First(p.clone())))
+            } else {
+                Err(TypeError::SecondNonPair(*p.clone()))
             }
-            else {
-                unimplemented!()
-            }
-        },
+        }
         Term::Enum(tys) => {
-            // TODO: Check labels are unique
-            for (_, ty) in tys {
+            let (lbls, tys): (Vec<_>, Vec<_>) = tys.iter().cloned().unzip();
+
+            let mut used_lbls = HashSet::new();
+            for lbl in lbls.clone() {
+                if !used_lbls.insert(lbl) {
+                    return Err(TypeError::EnumLabelsNotUnique(lbls));
+                }
+            }
+
+            for ty in tys {
                 check_with_ctx(ctx, &ty, &Term::Type)?;
             }
 
@@ -89,17 +97,19 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
         }
         Term::Case(sm, Some(ann), cases) => {
             let (Binder(ann_var), ann_ty) = ann.clone().unbind();
-            // TODO: Check exhaustivity
             if let Term::Enum(tys) = infer_with_ctx(ctx, sm)?.nf(ctx) {
-                for (lbl, scope) in cases {
-                    if let Some(ty) = lookup(lbl, &tys) {
+                for (lbl, ty) in tys {
+                    if let Some(scope) = lookup(&lbl, &cases) {
                         let (Binder(var), body) = scope.clone().unbind();
 
-                        //println!("checkwithctx with annot {} and {} of ty {}", &var, &ann_var, &ann_ty); //SUBST CTX
-                        //println!("thectx: {}", &ctx);
-                        println!("foo : {}", &ann_var);
                         check_with_ctx(
-                            &ctx.with_type(&var, &ty).with_term(&ann_var, &Term::Variant(lbl.to_string(), Term::Var(Var::Free(var.clone())).into())),
+                            &ctx.with_type(&var, &ty).with_term(
+                                &ann_var,
+                                &Term::Variant(
+                                    lbl.to_string(),
+                                    Term::Var(Var::Free(var.clone())).into(),
+                                ),
+                            ),
                             &body,
                             &ann_ty.subst(
                                 &ann_var,
@@ -197,10 +207,10 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
 
                     Ok(body.subst(&x, &ty).subst(&a, &rec))
                 } else {
-                    unimplemented!()
+                    Err(TypeError::UnfoldBadlyFormed(*tm.clone()))
                 }
             } else {
-                unimplemented!()
+                Err(TypeError::UnfoldBadlyFormed(*tm.clone()))
             }
         }
         _ => Err(TypeError::CouldNotInfer(term.clone())),
@@ -208,7 +218,6 @@ fn infer_with_ctx(ctx: &Context, term: &Term) -> Result<Term, TypeError> {
 }
 
 fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError> {
-    println!("{} <= {}", term, ty);
     std::io::stdout().flush().unwrap();
     match (term, &ty.nf(ctx)) {
         (Term::Lam(lam_scope), Term::Pi(pi_scope)) => {
@@ -219,14 +228,11 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             Ok(())
         }
         (Term::Fix(tm), Term::Pi(pi_scope)) => {
-            let ((_, Embed(ind_ty)), rest) = pi_scope.clone().unbind();
+            let (_, rest) = pi_scope.clone().unbind();
             if let Term::Pi(scope) = *rest {
-                let ((_, Embed(rec_ty)), ty) = scope.clone().unbind();
-                if let Term::App(rec, ind) = *rec_ty {
-                    if let Term::Rec(scope) = *rec {
-                        //check_with_ctx(ctx, &ind, &ind_ty)?;
-                        //check_with_ctx(ctx, &ty, &Term::Type)?; TODO: ADD
-
+                let ((_, Embed(rec_ty)), _) = scope.clone().unbind();
+                if let Term::App(rec, _) = *rec_ty {
+                    if let Term::Rec(_) = *rec {
                         let var = FreeVar::fresh_unnamed();
                         let expected_ty = Term::Pi(Scope::new(
                             (Binder(var), Embed(Term::Pi(pi_scope.clone()).into())),
@@ -236,23 +242,20 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
                         check_with_ctx(ctx, &tm, &expected_ty)?;
 
                         Ok(())
+                    } else {
+                        Err(TypeError::FixBadlyFormed(*tm.clone()))
                     }
-                    else {
-                        unimplemented!()
-                    }
+                } else {
+                    Err(TypeError::FixBadlyFormed(*tm.clone()))
                 }
-                else {
-                    unimplemented!()
-                }
-            }
-            else {
-                unimplemented!()
+            } else {
+                Err(TypeError::FixBadlyFormed(*tm.clone()))
             }
         }
         (Term::Pair(l, r), Term::Sigma(scope)) => {
             let ((Binder(var), Embed(lhs)), rhs) = scope.clone().unbind();
             check_with_ctx(ctx, &l, &lhs)?;
-            check_with_ctx(ctx, &r, &rhs.subst(&var, &l))?; //TODO: Perhaps it would be better to do ctx.with_term(var, l), rather than subst'ing?
+            check_with_ctx(ctx, &r, &rhs.subst(&var, &l))?;
 
             Ok(())
         }
@@ -266,10 +269,9 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
             }
         }
         (Term::Case(sm, None, cases), ann) => {
-            // TODO: Check exhaustivity
             if let Term::Enum(tys) = infer_with_ctx(ctx, sm)?.nf(ctx) {
-                for (lbl, scope) in cases {
-                    if let Some(ty) = lookup(lbl, &tys) {
+                for (lbl, ty) in tys {
+                    if let Some(scope) = lookup(&lbl, &cases) {
                         let (Binder(var), body) = scope.clone().unbind();
 
                         check_with_ctx(&ctx.with_type(&var, &ty), &body, &ann)?;
@@ -313,23 +315,66 @@ fn check_with_ctx(ctx: &Context, term: &Term, ty: &Term) -> Result<(), TypeError
 
                 Ok(())
             } else {
-                unimplemented!("{}", rec)
+                Err(TypeError::FoldBadlyFormed(*tm.clone()))
             }
         }
         _ => {
             let inf_ty = infer_with_ctx(ctx, term)?;
             if inf_ty.beq(&ty, ctx) {
-                //println!("apparently thess are equal term {} is     {} and    {}", term.clone(), ty.clone(), inf_ty.clone());
                 Ok(())
             } else {
-                println!("ctx : {}", ctx);
-
                 Err(TypeError::CouldNotCheck(
                     term.clone(),
                     ty.clone(),
                     inf_ty.clone(),
                 ))
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ast::Term;
+    use crate::error::TypeError;
+    use crate::parser::parse_term;
+    use moniker::assert_term_eq;
+
+    #[test]
+    fn unit_is_unitty() {
+        let term = Term::Unit;
+        let ty = term.infer_type().unwrap();
+
+        assert_term_eq!(ty, Term::UnitTy);
+    }
+
+    #[test]
+    fn type_is_type() {
+        let term = Term::Type;
+        let ty = term.infer_type().unwrap();
+
+        assert_term_eq!(ty, Term::Type);
+    }
+
+    #[test]
+    fn lam_without_annot() {
+        let term = parse_term("\\x.x").unwrap();
+        let ty = term.infer_type().unwrap_err();
+
+        if let TypeError::CouldNotInfer(_) = ty {
+        } else {
+            panic!("expected CouldNotInfer");
+        }
+    }
+
+    #[test]
+    fn refl_without_annot() {
+        let term = Term::Refl;
+        let ty = term.infer_type().unwrap_err();
+
+        if let TypeError::CouldNotInfer(_) = ty {
+        } else {
+            panic!("expected CouldNotInfer");
         }
     }
 }

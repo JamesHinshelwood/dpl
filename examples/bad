@@ -9,4 +9,4 @@ let bad_true = (bad bad_false) : Bad unit in
 
 let absurd = (bad_false bad_true) : False in
 
-absurd
+unit

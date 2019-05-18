@@ -31,7 +31,7 @@ fn main() -> io::Result<()> {
             match ty {
                 Ok(ty) => {
                     println!("{}", term);
-                    println!("");
+                    println!();
                     println!("evaluates to");
                     println!("{}", term.normalize());
                     println!("with type");

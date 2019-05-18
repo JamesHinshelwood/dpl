@@ -16,4 +16,4 @@ let lem3 = (\p.lem1 (\y.p (tau (sigma y)))) : D in
 
 let loop = (lem2 lem3) : False in
 
-loop
+unit
